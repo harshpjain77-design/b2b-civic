@@ -6,8 +6,6 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 
-import { Ic, ICONS } from '../components/SharedUI';
-
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
   orange: 'var(--accent)', blue: 'var(--blue)', green: 'var(--green)',
@@ -15,6 +13,33 @@ const C = {
   red: 'var(--red)', pink: 'var(--pink)',
 };
 const CAT_COLORS = Object.values(C);
+
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+// Not used directly, custom TT used instead
+
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const Ico = ({ paths, size = 18, strokeWidth = 1.8 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={strokeWidth}
+    strokeLinecap="round" strokeLinejoin="round"
+    style={{ display: 'block', flexShrink: 0 }}>
+    {[].concat(paths).map((p, i) => <path key={i} d={p} />)}
+  </svg>
+);
+
+const ICONS = {
+  total: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M16 13H8', 'M16 17H8', 'M10 9H8'],
+  resolved: ['M22 11.08V12a10 10 0 1 1-5.93-9.14', 'M22 4 12 14.01l-3-3'],
+  time: ['M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z', 'M12 6v6l4 2'],
+  open: ['M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4', 'M12 17h.01'],
+  category: ['M4 6h16', 'M4 10h16', 'M4 14h16', 'M4 18h16'],
+  trend: ['M3 3v18h18', 'M18.7 8l-5.1 5.2-2.8-2.7L7 14.3'],
+  pie: ['M21.21 15.89A10 10 0 1 1 8 2.83', 'M22 12A10 10 0 0 0 12 2v10z'],
+  bar: ['M12 20V10', 'M18 20V4', 'M6 20v-4'],
+  ward: ['M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M9 22V12h6v10'],
+  priority: ['M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'],
+  arrow: 'M5 12h14M12 5l7 7-7 7',
+};
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KPI({ iconKey, label, value, color, bg, bd, sub, delay = 0 }) {
@@ -57,7 +82,7 @@ function KPI({ iconKey, label, value, color, bg, bd, sub, delay = 0 }) {
         color: color || 'var(--text2)', marginBottom: 16,
         position: 'relative', zIndex: 2
       }}>
-        <Ic d={ICONS[iconKey]} size={20} />
+        <Ico paths={ICONS[iconKey]} size={20} />
       </div>
 
       <p style={{

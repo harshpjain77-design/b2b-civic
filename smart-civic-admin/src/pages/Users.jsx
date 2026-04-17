@@ -1,14 +1,37 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc, serverTimestamp as firestoreTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-import { STATUS, PRIORITY, DEPTS, STEPS } from '../constants';
-import { Ic, ICONS, SBadge, PBadge } from '../components/SharedUI';
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const Ic = ({ d, size = 16, sw = 1.8, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke={color} strokeWidth={sw} strokeLinecap="round"
+    strokeLinejoin="round" style={{ display: 'block', flexShrink: 0 }}>
+    {[].concat(d).map((p, i) => <path key={i} d={p} />)}
+  </svg>
+);
+
+const ICONS = {
+  user: ['M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2', 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8'],
+  users: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 'M23 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'],
+  phone: ['M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.06 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 17z'],
+  map: ['M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z', 'M12 10m-3 0a3 3 0 1 0 6 0 3 3 0 0 0-6 0'],
+  cal: ['M8 2v4', 'M16 2v4', 'M3 8h18', 'M4 4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4z'],
+  key: ['M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4'],
+  shield: ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'],
+  search: ['M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z', 'M21 21l-4.35-4.35'],
+  block: ['M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636'],
+  unlock: ['M9 21H5a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3', 'M7 10V7a5 5 0 0 1 9.33-2.5', 'M16 18l2 2 4-4'],
+  trash: ['M3 6h18', 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2'],
+  close: 'M18 6 6 18M6 6l12 12',
+  check: 'M20 6 9 17l-5-5',
+  crown: ['M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z'],
+  chevR: 'M9 18l6-6-6-6',
+};
 
 // ─── Role badge config ────────────────────────────────────────────────────────
 const roleOf = u => {
-  if (u.role === 'super_admin' || u.role === 'admin') return { label: 'Admin', icon: 'crown', color: 'var(--purple)', bg: 'var(--purpleBg)', bd: 'var(--purpleBd)' };
-  if (u.role === 'hod') return { label: 'HOD', icon: 'shield', color: 'var(--blue)', bg: 'var(--blueBg)', bd: 'var(--blueBd)' };
+  if (u.role === 'admin') return { label: 'Admin', icon: 'crown', color: 'var(--purple)', bg: 'var(--purpleBg)', bd: 'var(--purpleBd)' };
   if (u.blocked) return { label: 'Blocked', icon: 'block', color: 'var(--red)', bg: 'var(--redBg)', bd: 'var(--redBd)' };
   return { label: 'Active', icon: 'check', color: 'var(--green)', bg: 'var(--greenBg)', bd: 'var(--greenBd)' };
 };
@@ -29,27 +52,15 @@ const Avatar = ({ name, size = 48 }) => {
   );
 };
 
-
-function UserModal({ u, user, onClose, onBlock, onDelete, onUpdate }) {
+// ─── User Modal ───────────────────────────────────────────────────────────────
+function UserModal({ u, onClose, onBlock, onDelete }) {
   const rb = roleOf(u);
-  const [editRole, setEditRole] = useState(u.role || 'citizen');
-  const [editDept, setEditDept] = useState(u.department || '');
-  const [saving, setSaving] = useState(false);
-
-  const isSuper = user.role === 'super_admin' || user.role === 'admin';
 
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
-
-  const handleUpdate = async () => {
-    setSaving(true);
-    await onUpdate(u.id, { role: editRole, department: editRole === 'hod' ? editDept : '' });
-    setSaving(false);
-    onClose();
-  };
 
   const fmtDate = ts => {
     if (!ts) return '—';
@@ -116,7 +127,7 @@ function UserModal({ u, user, onClose, onBlock, onDelete, onUpdate }) {
             <div style={{
               position: 'absolute', bottom: 0, right: 0,
               width: 22, height: 22, borderRadius: '50%',
-              background: rb.bg, border: `2px solid #fff`, 
+              background: rb.bg, border: `2px solid #fff`, // Fixed border for contrast over avatar
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: rb.color,
             }}>
@@ -134,52 +145,20 @@ function UserModal({ u, user, onClose, onBlock, onDelete, onUpdate }) {
             marginTop: 12, padding: '4px 14px', borderRadius: 99,
             fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
             background: rb.bg, color: rb.color, border: `1px solid ${rb.bd}`,
-          }}>{rb.label} {u.department ? `· ${u.department}` : ''}</span>
+          }}>{rb.label}</span>
         </div>
 
         {/* Details */}
         <div style={{ padding: '0 0 20px' }}>
-          <div style={{ borderBottom: '1px solid var(--border)', maxHeight: '30vh', overflowY: 'auto' }}>
+          <div style={{ borderBottom: '1px solid var(--border)' }}>
             <Row iconKey="phone" label="Phone" value={u.phone || '—'} />
             <Row iconKey="map" label="Ward" value={u.wardNo ? `Ward ${u.wardNo}` : '—'} />
             <Row iconKey="cal" label="Joined" value={fmtDate(u.createdAt)} />
-            <Row iconKey="key" label="Current Role" value={u.role || 'citizen'} />
-            
-            {/* Super Admin Privileged Controls */}
-            {isSuper && u.email !== user.email && (
-              <div style={{ padding: '16px', background: 'var(--surface2)', borderTop: '1px solid var(--border)' }}>
-                 <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: 1, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 10 }}>Update Permissions</p>
-                 <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                   <select value={editRole} onChange={e => setEditRole(e.target.value)} style={{
-                     flex: 1, padding: '7px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', fontSize: 12, color: 'var(--text)', outline: 'none'
-                   }}>
-                     <option value="citizen">Citizen</option>
-                     <option value="hod">HOD (Dept Head)</option>
-                     <option value="super_admin">Super Admin</option>
-                   </select>
-                   {editRole === 'hod' && (
-                     <select value={editDept} onChange={e => setEditDept(e.target.value)} style={{
-                       flex: 1.5, padding: '7px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface)', fontSize: 12, color: 'var(--text)', outline: 'none'
-                     }}>
-                       <option value="">Select Dept...</option>
-                       {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
-                     </select>
-                   )}
-                 </div>
-                 <button 
-                  disabled={saving || (editRole === 'hod' && !editDept)}
-                  onClick={handleUpdate} 
-                  style={{
-                    width: '100%', padding: '8px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', opacity: (saving || (editRole === 'hod' && !editDept)) ? 0.6 : 1
-                 }}>
-                   {saving ? 'Saving...' : 'Save Changes'}
-                 </button>
-              </div>
-            )}
+            <Row iconKey="key" label="Role" value={u.role || 'citizen'} />
           </div>
 
           <div style={{ padding: '16px 20px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {u.role !== 'super_admin' && (
+            {u.role !== 'admin' && (
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => { onBlock(u); onClose(); }} style={{
                   flex: 1, padding: '11px', borderRadius: 11, cursor: 'pointer',
@@ -191,7 +170,7 @@ function UserModal({ u, user, onClose, onBlock, onDelete, onUpdate }) {
                   transition: 'all .15s',
                 }}>
                   <Ic d={u.blocked ? ICONS.unlock : ICONS.block} size={14} />
-                  {u.blocked ? 'Unblock' : 'Block'}
+                  {u.blocked ? 'Unblock User' : 'Block User'}
                 </button>
                 <button onClick={() => onDelete(u)} style={{
                   flex: 1, padding: '11px', borderRadius: 11, cursor: 'pointer',
@@ -201,7 +180,7 @@ function UserModal({ u, user, onClose, onBlock, onDelete, onUpdate }) {
                   transition: 'all .15s',
                 }}>
                   <Ic d={ICONS.trash} size={14} />
-                  Delete
+                  Delete User
                 </button>
               </div>
             )}
@@ -209,7 +188,7 @@ function UserModal({ u, user, onClose, onBlock, onDelete, onUpdate }) {
               width: '100%', padding: '11px', borderRadius: 11, cursor: 'pointer',
               background: 'var(--surface2)', border: '1px solid var(--border)',
               color: 'var(--text2)', fontWeight: 600, fontSize: 13, outline: 'none',
-            }}>Close</button>
+            }}>Dismiss</button>
           </div>
         </div>
       </div>
@@ -217,19 +196,8 @@ function UserModal({ u, user, onClose, onBlock, onDelete, onUpdate }) {
   );
 }
 
-// ─── Seed Data ──────────────────────────────────────────────────────────────
-const HOD_SEED_DATA = [
-  { email: 'hod.roads@mumbai.gov', name: 'HOD Roads', dept: 'Road Department' },
-  { email: 'hod.electric@mumbai.gov', name: 'HOD Electric', dept: 'Electric Department' },
-  { email: 'hod.water@mumbai.gov', name: 'HOD Water', dept: 'Water Supply' },
-  { email: 'hod.sanit@mumbai.gov', name: 'HOD Sanitation', dept: 'Sanitation Department' },
-  { email: 'hod.traffic@mumbai.gov', name: 'HOD Traffic', dept: 'Traffic Control' },
-  { email: 'hod.trees@mumbai.gov', name: 'HOD Trees', dept: 'Tree Authority' },
-  { email: 'hod.general@mumbai.gov', name: 'HOD Admin', dept: 'General Administration' },
-];
-
 // ─── Users Page ───────────────────────────────────────────────────────────────
-export default function Users({ user }) {
+export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -253,16 +221,11 @@ export default function Users({ user }) {
       || String(u.wardNo || '').includes(q);
     const mf =
       filter === 'all' ? true :
-        filter === 'admin' ? (u.role === 'admin' || u.role === 'super_admin') :
-          filter === 'hod' ? u.role === 'hod' :
-            filter === 'blocked' ? u.blocked :
-              filter === 'active' ? !u.blocked && u.role !== 'admin' && u.role !== 'super_admin' && u.role !== 'hod' : true;
+        filter === 'admin' ? u.role === 'admin' :
+          filter === 'blocked' ? u.blocked :
+            filter === 'active' ? !u.blocked && u.role !== 'admin' : true;
     return ms && mf;
   });
-
-  const onUpdate = async (id, data) => {
-    await updateDoc(doc(db, 'users', id), data);
-  };
 
   const toggleBlock = async u => {
     if (!window.confirm(`${u.blocked ? 'Unblock' : 'Block'} ${u.name || u.email}?`)) return;
@@ -283,42 +246,15 @@ export default function Users({ user }) {
 
   const counts = {
     all: users.length,
-    active: users.filter(u => !u.blocked && u.role !== 'admin' && u.role !== 'super_admin' && u.role !== 'hod').length,
-    admin: users.filter(u => u.role === 'admin' || u.role === 'super_admin').length,
-    hod: users.filter(u => u.role === 'hod').length,
+    active: users.filter(u => !u.blocked && u.role !== 'admin').length,
+    admin: users.filter(u => u.role === 'admin').length,
     blocked: users.filter(u => u.blocked).length,
-  };
-
-  const seedHODs = async () => {
-    if (!window.confirm("This will create/reset 7 official HOD accounts in Firestore. Proceed?")) return;
-    setLoading(true);
-    try {
-      for (const h of HOD_SEED_DATA) {
-        // Create a predictable ID from email or just use setDoc with email as ID if preferred
-        // We'll use doc(collection(db, 'users')) but with a setDoc to ensure roles are correct
-        const q = users.find(u => u.email === h.email);
-        const ref = q ? doc(db, 'users', q.id) : doc(collection(db, 'users'));
-        await setDoc(ref, {
-          email: h.email,
-          name: h.name,
-          role: 'hod',
-          department: h.dept,
-          createdAt: firestoreTimestamp(),
-          isPredefined: true
-        }, { merge: true });
-      }
-      alert("HOD accounts seeded! Now please create these identical emails in Firebase Authentication console.");
-    } catch (e) {
-      alert("Error seeding: " + e.message);
-    }
-    setLoading(false);
   };
 
   const FILTERS = [
     { id: 'all', label: 'All' },
-    { id: 'active', label: 'Citizens' },
+    { id: 'active', label: 'Active' },
     { id: 'admin', label: 'Admins' },
-    { id: 'hod', label: 'HODs' },
     { id: 'blocked', label: 'Blocked' },
   ];
 
@@ -349,21 +285,6 @@ export default function Users({ user }) {
               fontSize: 12, fontWeight: 700, color: p.color,
             }}>{p.label}</div>
           ))}
-          {user.role === 'super_admin' && (
-             <button 
-               onClick={seedHODs}
-               style={{
-                marginLeft: 10, padding: '7px 16px', borderRadius: 10,
-                background: 'var(--accent)', color: '#fff', border: 'none',
-                fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                boxShadow: 'var(--shAccent)', transition: 'all .2s'
-               }}
-               onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-             >
-               Setup HOD Portal
-             </button>
-          )}
         </div>
       </div>
 
@@ -528,11 +449,9 @@ export default function Users({ user }) {
       {sel && (
         <UserModal
           u={sel}
-          user={user}
           onClose={() => setSel(null)}
           onBlock={toggleBlock}
           onDelete={deleteUser}
-          onUpdate={onUpdate}
         />
       )}
     </div>

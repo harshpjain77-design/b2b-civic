@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import '../image_upload_service.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ApiService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // ── CREATE ISSUE ─────────────────────────────────────────────
   static Future<Map<String, dynamic>?> createIssue({
@@ -17,8 +17,6 @@ class ApiService {
     double? latitude,
     double? longitude,
     File? image,
-    String? voiceUrl,
-    String? manualAddress,
   }) async {
     try {
       final user = _auth.currentUser;
@@ -26,12 +24,14 @@ class ApiService {
 
       String? imageUrl;
 
-      // ── Upload Image to ImgBB ───────────────────
+      // ── Upload Image ─────────────────────────────
       if (image != null) {
-        imageUrl = await ImageUploadService.uploadImage(
-          file: image,
-          name: "issue_${DateTime.now().millisecondsSinceEpoch}",
-        );
+        final ref = _storage
+            .ref()
+            .child("issues/${DateTime.now().millisecondsSinceEpoch}.jpg");
+
+        await ref.putFile(image);
+        imageUrl = await ref.getDownloadURL();
       }
 
       // ── Save Issue to Firestore ──────────────────
@@ -44,15 +44,13 @@ class ApiService {
         "latitude": latitude,
         "longitude": longitude,
         "imageUrl": imageUrl,
-        "voiceUrl": voiceUrl,
-        "manualAddress": manualAddress,
         "status": "Pending",
         "createdAt": FieldValue.serverTimestamp(),
       });
 
       return {"trackId": doc.id};
     } catch (e) {
-      debugPrint("Create Issue Error: $e");
+      print("Create Issue Error: $e");
       return null;
     }
   }
@@ -63,7 +61,7 @@ class ApiService {
       final snapshot = await _db.collection("issues").get();
       return snapshot.docs.map((doc) => {...doc.data(), "id": doc.id}).toList();
     } catch (e) {
-      debugPrint("Get Issues Error: $e");
+      print("Get Issues Error: $e");
       return [];
     }
   }
@@ -81,7 +79,7 @@ class ApiService {
 
       return snapshot.docs.map((doc) => {...doc.data(), "id": doc.id}).toList();
     } catch (e) {
-      debugPrint("My Issues Error: $e");
+      print("My Issues Error: $e");
       return [];
     }
   }
@@ -90,11 +88,12 @@ class ApiService {
   static Future<Map<String, dynamic>?> trackIssue(String trackId) async {
     try {
       final doc = await _db.collection("issues").doc(trackId).get();
+
       if (doc.exists) {
         return {...doc.data()!, "id": doc.id};
       }
     } catch (e) {
-      debugPrint("Track Issue Error: $e");
+      print("Track Issue Error: $e");
     }
     return null;
   }
@@ -103,6 +102,7 @@ class ApiService {
   static Future<List<dynamic>> getHotspots() async {
     try {
       final snapshot = await _db.collection("issues").get();
+
       return snapshot.docs
           .map((doc) => {
                 "lat": doc["latitude"],
@@ -111,7 +111,7 @@ class ApiService {
           .where((e) => e["lat"] != null && e["lng"] != null)
           .toList();
     } catch (e) {
-      debugPrint("Hotspots Error: $e");
+      print("Hotspots Error: $e");
       return [];
     }
   }
@@ -120,11 +120,12 @@ class ApiService {
   static Future<Map<String, dynamic>?> getIssueById(String id) async {
     try {
       final doc = await _db.collection("issues").doc(id).get();
+
       if (doc.exists) {
         return {...doc.data()!, "id": doc.id};
       }
     } catch (e) {
-      debugPrint("Get Issue Error: $e");
+      print("Get Issue Error: $e");
     }
     return null;
   }

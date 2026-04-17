@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
 import 'services/theme_service.dart';
-import 'services/language_service.dart';
 import 'utils/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
@@ -18,21 +17,17 @@ import 'screens/map_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   try {
+    // Adding a timeout to Firebase init to prevent full app hang if something is blocked
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     ).timeout(const Duration(seconds: 10));
   } catch (e) {
-    debugPrint('Firebase init error: $e');
+    print("Firebase init error: $e");
   }
-
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeService()),
-        ChangeNotifierProvider(create: (_) => LanguageService()),
-      ],
+    ChangeNotifierProvider(
+      create: (_) => ThemeService(),
       child: const SmartCivicApp(),
     ),
   );
@@ -43,32 +38,27 @@ class SmartCivicApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FIX: actually use themeService to drive dark/light mode
     final themeService = context.watch<ThemeService>();
-    final languageService = context.watch<LanguageService>();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Smart Civic Mumbai',
-      locale: languageService.currentLocale,
-      theme:      AppTheme.lightTheme,
-      darkTheme:  AppTheme.darkTheme,
-      // ✅ FIX: was hardcoded ThemeMode.light — now respects user preference
-      themeMode: themeService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      theme: AppTheme.lightTheme,
+      themeMode: ThemeMode.light,
       initialRoute: '/',
       routes: {
-        '/':           (ctx) => const SplashScreen(),
-        '/login':      (ctx) => const LoginScreen(),
-        '/signup':     (ctx) => const SignupScreen(),
-        '/mpin-setup': (ctx) => const MpinSetupScreen(),
-        '/home':       (ctx) => const HomeScreen(),
-        '/report':     (ctx) => const ReportIssueScreen(),
-        '/track':      (ctx) => const TrackScreen(),
-        '/myIssues':   (ctx) => const MyIssuesScreen(),
-        '/map':        (ctx) => const MapScreen(),
+        '/':           (context) => const SplashScreen(),
+        '/login':      (context) => const LoginScreen(),
+        '/signup':     (context) => const SignupScreen(),
+        '/mpin-setup': (context) => const MpinSetupScreen(),
+        '/home':       (context) => const HomeScreen(),
+        '/report':     (context) => const ReportIssueScreen(),
+        '/track':      (context) => const TrackScreen(),
+        '/myIssues':   (context) => const MyIssuesScreen(),
+        '/map':        (context) => const MapScreen(),
       },
       onUnknownRoute: (settings) =>
           MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
-}
+}

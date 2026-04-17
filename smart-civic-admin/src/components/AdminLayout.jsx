@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import Dashboard from '../pages/Dashboard';
 import Complaints from '../pages/Complaints';
@@ -54,19 +54,16 @@ const NavIcon = ({ id, size = 16 }) => {
   );
 };
 
+// ─── Nav config ────────────────────────────────────────────────────────────────
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'complaints', label: 'Complaints', live: true },
+  { id: 'users', label: 'Users' },
+  { id: 'analytics', label: 'Analytics' },
+];
+
 // ─── AdminLayout ───────────────────────────────────────────────────────────────
 export default function AdminLayout({ user }) {
-  const isHOD = user.role === 'hod';
-  
-  const NAV = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'complaints', label: 'Complaints', live: true },
-    ...(!isHOD ? [
-      { id: 'users', label: 'Users' },
-      { id: 'analytics', label: 'Analytics' },
-    ] : []),
-  ];
-
   const [page, setPage] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
   const [counts, setCounts] = useState({ open: 0, total: 0 });
@@ -82,23 +79,15 @@ export default function AdminLayout({ user }) {
 
   // Sync complaints count for sidebar badge
   useEffect(() => {
-    const baseRef = collection(db, 'issues');
-    const q = (user.role === 'hod' && user.department)
-      ? query(baseRef, where('assignedTo', '==', user.department))
-      : baseRef;
-
-    const unsub = onSnapshot(q, snap => {
+    const unsub = onSnapshot(collection(db, 'issues'), snap => {
       const issues = snap.docs.map(d => d.data());
       setCounts({
-        open: issues.filter(i => i.status === 'open' || i.status === 'assigned').length,
+        open: issues.filter(i => i.status === 'open').length,
         total: issues.length,
       });
-    }, (err) => {
-      console.warn("Sidebar count error:", err);
-      setCounts({ open: 0, total: 0 });
     });
     return unsub;
-  }, [user.role, user.department]);
+  }, []);
 
   const logout = async () => {
     if (window.confirm('Sign out of admin panel?')) await signOut(auth);
@@ -108,11 +97,11 @@ export default function AdminLayout({ user }) {
 
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <Dashboard user={user} />;
-      case 'complaints': return <Complaints user={user} />;
-      case 'users': return <Users user={user} />;
-      case 'analytics': return <Analytics user={user} />;
-      default: return <Dashboard user={user} />;
+      case 'dashboard': return <Dashboard />;
+      case 'complaints': return <Complaints />;
+      case 'users': return <Users />;
+      case 'analytics': return <Analytics />;
+      default: return <Dashboard />;
     }
   };
 
@@ -258,13 +247,11 @@ export default function AdminLayout({ user }) {
                 fontSize: 12, fontWeight: 700, color: 'var(--text)',
                 overflow: 'hidden', textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap', margin: 0,
-              }}>{user.name || user.email?.split('@')[0]}</p>
+              }}>{user.email?.split('@')[0]}</p>
               <p style={{
                 fontSize: 10, color: 'var(--accent)', fontWeight: 600,
                 margin: '2px 0 0',
-              }}>
-                {user.role === 'hod' ? `HOD · ${user.department}` : 'Master Admin'}
-              </p>
+              }}>Administrator</p>
             </div>
           </div>
         )}

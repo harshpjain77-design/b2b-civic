@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/theme_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../services/language_service.dart';
 
 // Mumbai news articles data
 const List<Map<String, dynamic>> _mumbaiNews = [
@@ -364,9 +363,6 @@ class _LoginScreenState extends State<LoginScreen>
       );
     }
 
-    final cs = Theme.of(context).colorScheme;
-    final ls = context.watch<LanguageService>();
-
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: CustomScrollView(
@@ -493,7 +489,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(ls.translate('sign_in_desc'),
+                          Text("Sign in to report & track civic issues",
                               style: TextStyle(
                                   color: Colors.white.withOpacity(0.75),
                                   fontSize: 13)),
@@ -524,8 +520,8 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(ls.translate('login'),
-                            style:const TextStyle(
+                        const Text("Login",
+                            style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
                                 color: Color(0xFFF97316))),
@@ -538,7 +534,7 @@ class _LoginScreenState extends State<LoginScreen>
                         // Email
                         _inputField(
                           controller: _emailController,
-                          label: ls.translate('email'),
+                          label: "Email Address",
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           inputAction: TextInputAction.next,
@@ -548,7 +544,7 @@ class _LoginScreenState extends State<LoginScreen>
                         // Password
                         _inputField(
                           controller: _passwordController,
-                          label: ls.translate('password'),
+                          label: "Password",
                           icon: Icons.lock_outline,
                           obscure: !_showPassword,
                           inputAction: TextInputAction.done,
@@ -576,7 +572,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 minimumSize: Size.zero,
                                 tapTargetSize:
                                     MaterialTapTargetSize.shrinkWrap),
-                            child: Text(ls.translate('forgot_password'),
+                            child: Text("Forgot Password?",
                                 style: TextStyle(
                                     color: Theme.of(context).colorScheme.primary,
                                     fontWeight: FontWeight.w600,
@@ -614,12 +610,12 @@ class _LoginScreenState extends State<LoginScreen>
                                           style: TextStyle(fontSize: 15)),
                                     ],
                                   )
-                                : Row(
+                                : const Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.center,
                                     children: [
-                                      Text(ls.translate('login'),
-                                          style: const TextStyle(
+                                      Text("Login",
+                                          style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700)),
                                       SizedBox(width: 8),
@@ -638,7 +634,10 @@ class _LoginScreenState extends State<LoginScreen>
                                 Navigator.pushNamed(context, '/signup'),
                             child: Text.rich(TextSpan(children: [
                               TextSpan(
-                                  text: ls.translate('new_citizen'),
+                                  text: "New Citizen? ",
+                                  style: TextStyle(color: Colors.grey)),
+                              TextSpan(
+                                  text: "Register here →",
                                   style: TextStyle(
                                       color: Theme.of(context).colorScheme.primary,
                                       fontWeight: FontWeight.w700)),
@@ -671,7 +670,7 @@ class _LoginScreenState extends State<LoginScreen>
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF1A1A2E))),
                       const Spacer(),
-                      Text(ls.translate('mumbai_today'),
+                      Text("मुंबई बातम्या",
                           style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade400,

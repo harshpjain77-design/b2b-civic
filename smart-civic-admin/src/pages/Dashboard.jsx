@@ -1,21 +1,25 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { CAT_COLORS, ESCALATION_HOURS } from '../constants';
+
+// ─── Palette ──────────────────────────────────────────────────────────────────
+const CAT_COLORS = [
+  'var(--accent)', 'var(--blue)', 'var(--green)', 'var(--purple)',
+  'var(--teal)', 'var(--orange)', 'var(--red)', 'var(--pink)'
+];
 
 const STATUS_META = {
   open: { label: 'Open', color: 'var(--blue)', bg: 'var(--blueBg)', bd: 'var(--blueBd)' },
-  assigned: { label: 'Assigned', color: 'var(--accent)', bg: 'var(--accentBg)', bd: 'var(--accentBd)' },
   in_progress: { label: 'In Progress', color: 'var(--orange)', bg: 'var(--orangeBg)', bd: 'var(--orangeBd)' },
   resolved: { label: 'Resolved', color: 'var(--green)', bg: 'var(--greenBg)', bd: 'var(--greenBd)' },
   rejected: { label: 'Rejected', color: 'var(--red)', bg: 'var(--redBg)', bd: 'var(--redBd)' },
 };
 
-// --- SVG Icons ---
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
 const Ic = ({ d, size = 16, sw = 1.8 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth={sw} strokeLinecap="round"
@@ -26,21 +30,20 @@ const Ic = ({ d, size = 16, sw = 1.8 }) => (
 
 const ICONS = {
   total: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M16 13H8', 'M16 17H8', 'M10 9H8'],
-  open: ['M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z', 'M12 9v4', 'M12 17h.01'], 
-  progress: ['M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z', 'M12 6v6l4 2'],
+  open: ['M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4', 'M12 17h.01'],
+  progress: ['M12 22V12', 'M12 7V2', 'M8 2h8', 'M3 7h18'],
   resolved: ['M22 11.08V12a10 10 0 1 1-5.93-9.14', 'M22 4 12 14.01l-3-3'],
-  alert: ['M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4', 'M12 17h.01'],
-  citizens: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0'],
+  citizens: ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8', 'M23 21v-2a4 4 0 0 0-3-3.87', 'M16 3.13a4 4 0 0 1 0 7.75'],
   trend: ['M3 3v18h18', 'M18.7 8l-5.1 5.2-2.8-2.7L7 14.3'],
   pie: ['M21.21 15.89A10 10 0 1 1 8 2.83', 'M22 12A10 10 0 0 0 12 2v10z'],
-  category: ['M4 6h16', 'M4 10h16', 'M4 14h16', 'M4 18h16'],
-  recent: ['M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
-  check: ['M20 6L9 17l-5-5'],
+  category: ['M12 20V10', 'M18 20V4', 'M6 20v-4'],
+  recent: ['M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9', 'M13.73 21a2 2 0 0 1-3.46 0'],
+  check: 'M20 6 9 17l-5-5',
   warn: ['M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z', 'M12 9v4', 'M12 17h.01'],
   file: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6'],
 };
 
-// --- Tooltip ---
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
 const CustomTT = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -61,7 +64,7 @@ const CustomTT = ({ active, payload, label }) => {
   );
 };
 
-// --- KPI Card ---
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
 function KPI({ iconKey, label, value, color, bg, bd, sub, delay = 0 }) {
   return (
     <div style={{
@@ -95,7 +98,7 @@ function KPI({ iconKey, label, value, color, bg, bd, sub, delay = 0 }) {
   );
 }
 
-// --- Chart Card ---
+// ─── Chart Card ───────────────────────────────────────────────────────────────
 function Card({ iconKey, title, subtitle, children, right }) {
   return (
     <div style={{
@@ -125,7 +128,7 @@ function Card({ iconKey, title, subtitle, children, right }) {
   );
 }
 
-// --- Status dot row ---
+// ─── Status dot row ───────────────────────────────────────────────────────────
 function StatusDot({ color, label, value, total }) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
@@ -144,57 +147,39 @@ function StatusDot({ color, label, value, total }) {
   );
 }
 
-// --- Dashboard ---
-export default function Dashboard({ user }) {
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+export default function Dashboard() {
   const [issues, setIssues] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const isHOD = user.role === 'hod';
-
   useEffect(() => {
-    const baseRef = collection(db, 'issues');
-    const q = (isHOD && user.department)
-      ? query(baseRef, where('assignedTo', '==', user.department))
-      : baseRef;
-
-    const u1 = onSnapshot(q, s => {
+    const u1 = onSnapshot(collection(db, 'issues'), s => {
       setIssues(s.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
-    }, (err) => {
-      console.warn("Dashboard Issues Error:", err);
-      setIssues([]);
-      setLoading(false);
-    });
-
+    }, () => setLoading(false));
     const u2 = onSnapshot(collection(db, 'users'), s => {
       setUsers(s.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => { u1(); u2(); };
-  }, [isHOD, user.department]);
+  }, []);
 
   const total = issues.length;
-  const open = issues.filter(i => i.status === 'open' || i.status === 'assigned').length;
+  const open = issues.filter(i => i.status === 'open').length;
   const inProg = issues.filter(i => i.status === 'in_progress').length;
   const resolved = issues.filter(i => i.status === 'resolved').length;
   const rejected = issues.filter(i => i.status === 'rejected').length;
   const resRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
   const citizens = users.filter(u => u.role !== 'admin').length;
-  
-  const escalated = issues.filter(i => {
-    if (!['open', 'assigned'].includes(i.status)) return false;
-    const created = i.createdAt?.toDate ? i.createdAt.toDate() : new Date(i.createdAt);
-    const diff = (new Date() - created) / 3600000;
-    return diff > ESCALATION_HOURS;
-  });
 
   const catMap = {};
   issues.forEach(i => { const c = i.category || 'Other'; catMap[c] = (catMap[c] || 0) + 1; });
   const catData = Object.entries(catMap).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value }));
 
+  // Chart hex codes fallback (Recharts needs exact colors, CSS vars do not work natively inside rechart elements without tricks, 
+  // but they DO work inside <Cell> fill="var(--color)")
   const pieData = [
-    { name: 'New', value: issues.filter(i => i.status === 'open').length, color: 'var(--blue)' },
-    { name: 'Assigned', value: issues.filter(i => i.status === 'assigned').length, color: 'var(--accent)' },
+    { name: 'Open', value: open, color: 'var(--blue)' },
     { name: 'In Progress', value: inProg, color: 'var(--orange)' },
     { name: 'Resolved', value: resolved, color: 'var(--green)' },
     { name: 'Rejected', value: rejected, color: 'var(--red)' },
@@ -232,17 +217,17 @@ export default function Dashboard({ user }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{
         display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
         animation: 'fadeUp .4s cubic-bezier(.16,1,.3,1) both',
       }}>
         <div>
           <h1 style={{ fontFamily: 'Syne', fontSize: 28, fontWeight: 800, color: 'var(--text)', margin: 0, letterSpacing: -0.5 }}>
-            {isHOD ? `${user.department} Portal` : 'Dashboard'}
+            Dashboard
           </h1>
           <p style={{ color: 'var(--text2)', fontSize: 14, marginTop: 5 }}>
-            {isHOD ? 'Department Performance Overview' : 'Live overview'} ·{' '}
+            Live overview ·{' '}
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
@@ -261,30 +246,27 @@ export default function Dashboard({ user }) {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '8px 16px', borderRadius: 11,
-            background: (open + inProg) > 0 ? 'var(--blueBg)' : 'var(--greenBg)',
-            border: `1px solid ${(open + inProg) > 0 ? 'var(--blueBd)' : 'var(--greenBd)'}`,
+            background: open > 0 ? 'var(--blueBg)' : 'var(--greenBg)',
+            border: `1px solid ${open > 0 ? 'var(--blueBd)' : 'var(--greenBd)'}`,
             fontSize: 13, fontWeight: 700,
-            color: (open + inProg) > 0 ? 'var(--blue)' : 'var(--green)',
+            color: open > 0 ? 'var(--blue)' : 'var(--green)',
           }}>
             <Ic d={ICONS.file} size={14} />
-            {open + inProg} Active
+            {open} Open
           </div>
         </div>
       </div>
 
-      {/* KPI Row */}
+      {/* ── KPI Row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
-        <KPI delay={0} iconKey="total" label="Dept Complaints" value={total} sub={`${resRate}% resolved`} />
-        <KPI delay={0.05} iconKey="open" label="Open / Assigned" value={open} color="var(--blue)" bg="var(--blueBg)" bd="var(--blueBd)" />
+        <KPI delay={0} iconKey="total" label="Total Complaints" value={total} sub={`${resRate}% resolved`} />
+        <KPI delay={0.05} iconKey="open" label="Open Cases" value={open} color="var(--blue)" bg="var(--blueBg)" bd="var(--blueBd)" />
         <KPI delay={0.10} iconKey="progress" label="In Progress" value={inProg} color="var(--orange)" bg="var(--orangeBg)" bd="var(--orangeBd)" />
         <KPI delay={0.15} iconKey="resolved" label="Resolved" value={resolved} color="var(--green)" bg="var(--greenBg)" bd="var(--greenBd)" sub={`${rejected} rejected`} />
-        {escalated.length > 0 && (
-          <KPI delay={0.18} iconKey="alert" label="Escalated" value={escalated.length} color="var(--red)" bg="var(--redBg)" bd="var(--redBd)" sub="Stale > 48h" />
-        )}
-        {!isHOD && <KPI delay={0.20} iconKey="citizens" label="Citizens" value={citizens} color="var(--purple)" bg="var(--purpleBg)" bd="var(--purpleBd)" />}
+        <KPI delay={0.20} iconKey="citizens" label="Citizens" value={citizens} color="var(--purple)" bg="var(--purpleBg)" bd="var(--purpleBd)" />
       </div>
 
-      {/* Row 1: Trend + Pie */}
+      {/* ── Row 1: Trend + Pie ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
 
         <Card iconKey="trend" title="Complaint Trend" subtitle="Submitted vs resolved — last 8 months"
@@ -345,7 +327,7 @@ export default function Dashboard({ user }) {
         </Card>
       </div>
 
-      {/* Row 2: Category + Recent */}
+      {/* ── Row 2: Category + Recent ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
         <Card iconKey="category" title="Issues by Category" subtitle="Most reported civic issue types">
@@ -403,13 +385,6 @@ export default function Dashboard({ user }) {
                       borderRadius: 99, background: m.bg, color: m.color,
                       border: `1px solid ${m.bd}`, display: 'block',
                     }}>{m.label}</span>
-                    {escalated.find(e => e.id === issue.id) && (
-                      <span style={{
-                        marginTop: 4, display: 'block', fontSize: 9, fontWeight: 900,
-                        color: 'var(--red)', animation: 'pulse 1.5s infinite',
-                        letterSpacing: 0.5,
-                      }}>LATE ⚠️</span>
-                    )}
                     <span style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2, display: 'block' }}>{ds}</span>
                   </div>
                 </div>

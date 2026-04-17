@@ -9,7 +9,6 @@ import 'report_issue_screen.dart';
 import 'track_screen.dart';
 import 'map_screen.dart';
 import 'my_issues_screen.dart';
-import '../services/language_service.dart';
 
 // ═══════════════════════════════════════════════════════════
 //  HOME SCREEN
@@ -142,11 +141,11 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  String _greetingText(LanguageService ls) {
+  String get _greeting {
     final h = DateTime.now().hour;
-    if (h < 12) return ls.translate('greeting_morning');
-    if (h < 17) return ls.translate('greeting_afternoon');
-    return ls.translate('greeting_evening');
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   String get _firstName =>
@@ -168,17 +167,16 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _logout() async {
-    final ls = context.read<LanguageService>();
     final ok = await showDialog<bool>(
       context:context,
       builder:(ctx) => AlertDialog(
         shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(20)),
-        title:Text(ls.translate('sign_out'), style:const TextStyle(fontWeight:FontWeight.w800)),
-        content:Text(ls.translate('sign_out_confirm')),
+        title:const Text('Sign out', style:TextStyle(fontWeight:FontWeight.w800)),
+        content:const Text('Are you sure you want to sign out?'),
         actions:[
           TextButton(
             onPressed:()=>Navigator.pop(ctx,false),
-            child:Text(ls.translate('cancel'),
+            child:Text('Cancel',
                 style:TextStyle(color:Theme.of(context).colorScheme.onSurfaceVariant))),
           ElevatedButton(
             style:ElevatedButton.styleFrom(
@@ -186,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen>
               foregroundColor:Colors.white,
               shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(10))),
             onPressed:()=>Navigator.pop(ctx,true),
-            child:Text(ls.translate('sign_out'), style:const TextStyle(fontWeight:FontWeight.w700))),
+            child:const Text('Sign out', style:TextStyle(fontWeight:FontWeight.w700))),
         ],
       ),
     );
@@ -205,24 +203,20 @@ class _HomeScreenState extends State<HomeScreen>
         child:CustomScrollView(
           physics:const BouncingScrollPhysics(),
           slivers:[
-            SliverToBoxAdapter(child: Consumer<LanguageService>(
-              builder: (context, ls, _) => _Header(
-                firstName:_firstName, greeting:_greetingText(ls),
-                wardNo:_userWard, open:_open, resolved:_resolved,
-                loadingStats:_loadingStats,
-                onAvatarTap:_openProfile,
-                onLogout:_logout,
-              ),
+            SliverToBoxAdapter(child: _Header(
+              firstName:_firstName, greeting:_greeting,
+              wardNo:_userWard, open:_open, resolved:_resolved,
+              loadingStats:_loadingStats,
+              onAvatarTap:_openProfile,
+              onLogout:_logout,
             )),
 
             // Quick actions label
-            SliverToBoxAdapter(child:Consumer<LanguageService>(
-              builder:(context, ls, _) => FadeTransition(
-                opacity:_cardsFade,
-                child:SlideTransition(position:_cardsSlide,
-                  child:_SectionLabel(
-                    title:ls.translate('quick_actions'),
-                    trailing:ls.translate('mumbai_services')))))),
+            SliverToBoxAdapter(child:FadeTransition(
+              opacity:_cardsFade,
+              child:SlideTransition(position:_cardsSlide,
+                child:_SectionLabel(
+                  title:'Quick Actions', trailing:'Mumbai Services')))),
 
             // Quick actions grid
             SliverPadding(
@@ -236,16 +230,12 @@ class _HomeScreenState extends State<HomeScreen>
             ),
 
             // Contacts label + list
-            SliverToBoxAdapter(child: Consumer<LanguageService>(
-              builder:(context, ls, _) => _SectionLabel(title:ls.translate('helplines')))),
+            SliverToBoxAdapter(child: const _SectionLabel(title:'Helplines & Contacts')),
             SliverToBoxAdapter(child: const _ContactsList()),
 
             // Recent activity
-            SliverToBoxAdapter(child: Consumer<LanguageService>(
-              builder:(context, ls, _) => _RecentActivity(
-                uid:FirebaseAuth.instance.currentUser?.uid ?? '',
-                ls: ls,
-              ))),
+            SliverToBoxAdapter(child: _RecentActivity(
+              uid:FirebaseAuth.instance.currentUser?.uid ?? '')),
 
             const SliverToBoxAdapter(child:SizedBox(height:40)),
           ],
@@ -273,7 +263,6 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final ls = context.watch<LanguageService>();
 
     return Container(
       margin:const EdgeInsets.fromLTRB(16,12,16,0),
@@ -322,13 +311,8 @@ class _Header extends StatelessWidget {
                           letterSpacing:-0.7)),
                 ],
               )),
-              _HeaderBtn(
-                icon: Icons.language_rounded,
-                onTap: () => context.read<LanguageService>().toggleLanguage(),
-              ),
-              const SizedBox(width: 8),
               _HeaderBtn(icon:Icons.notifications_active_rounded, onTap:(){}),
-              const SizedBox(width: 8),
+              const SizedBox(width:10),
               _HeaderBtn(icon:Icons.logout_rounded, onTap:onLogout),
             ]),
 
@@ -364,13 +348,13 @@ class _Header extends StatelessWidget {
                   : Row(
                       mainAxisAlignment:MainAxisAlignment.spaceAround,
                       children:[
-                        _StatChipW(label:ls.translate('ward'),
+                        _StatChipW(label:'Ward',
                             value:wardNo.isNotEmpty ? wardNo : '—'),
                         _VDivider(),
-                        _StatChipW(label:ls.translate('open'), value:'$open',
+                        _StatChipW(label:'Open', value:'$open',
                             valueColor:const Color(0xFFFFE5B4)),
                         _VDivider(),
-                        _StatChipW(label:ls.translate('resolved'), value:'$resolved',
+                        _StatChipW(label:'Resolved', value:'$resolved',
                             valueColor:const Color(0xFFC6F6D5)),
                       ],
                     ),
@@ -528,15 +512,14 @@ class _QuickActionsGridState extends State<_QuickActionsGrid>
   @override
   Widget build(BuildContext ctx) {
     final cs = Theme.of(ctx).colorScheme;
-    final ls = context.watch<LanguageService>();
     final items = [
-      _ActionItem(ls.translate('report_issue'), ls.translate('file_complaint'),
+      _ActionItem('Report Issue',   'File a complaint',
           Icons.report_problem_outlined, cs.primary,    widget.onReport),
-      _ActionItem(ls.translate('track_complaint'), ls.translate('check_status'),
+      _ActionItem('Track Complaint','Check status',
           Icons.manage_search_rounded,  cs.secondary,   widget.onTrack),
-      _ActionItem(ls.translate('hotspot_map'), ls.translate('view_areas'),
+      _ActionItem('Hotspot Map',    'View issue areas',
           Icons.map_outlined,           cs.tertiary,    widget.onMap),
-      _ActionItem(ls.translate('my_issues'), ls.translate('all_complaints'),
+      _ActionItem('My Issues',      'All your complaints',
           Icons.list_alt_rounded,       const Color(0xFF7C3AED), widget.onMyIssues),
     ];
     return GridView.count(
@@ -754,14 +737,13 @@ class _ContactCardState extends State<_ContactCard>
 // ═══════════════════════════════════════════════════════════
 class _RecentActivity extends StatelessWidget {
   final String uid;
-  final LanguageService ls;
-  const _RecentActivity({required this.uid, required this.ls});
+  const _RecentActivity({required this.uid});
 
   @override
   Widget build(BuildContext ctx) {
     if (uid.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-      _SectionLabel(title:ls.translate('recent_activity')),
+      const _SectionLabel(title:'Recent Activity'),
       Padding(
         padding:const EdgeInsets.symmetric(horizontal:16),
         child:StreamBuilder<QuerySnapshot>(
@@ -806,8 +788,8 @@ class _RecentActivity extends StatelessWidget {
                   child:TextButton.icon(
                     onPressed:()=>Navigator.pushNamed(ctx,'/myIssues'),
                     icon:const Icon(Icons.arrow_forward_rounded,size:15),
-                    label:Text(ls.translate('view_all'),
-                        style:const TextStyle(fontWeight:FontWeight.w700)),
+                    label:const Text('View all',
+                        style:TextStyle(fontWeight:FontWeight.w700)),
                     style:TextButton.styleFrom(
                         foregroundColor:Theme.of(ctx).colorScheme.primary)),
                 ),
