@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/media_attachment.dart';
-import '../widgets/issue_media_section.dart';
+import 'package:provider/provider.dart';
+import 'package:audioplayers/audioplayers.dart';
+import '../services/theme_service.dart';
 
 // ═══════════════════════════════════════════════════════════
 //  MY ISSUES SCREEN
@@ -44,69 +46,45 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
   // ── Helpers ───────────────────────────────────────────────────────
   Color _statusColor(String s) {
     switch (s) {
-      case 'resolved':
-        return const Color(0xFF10B981); // Emerald
-      case 'in_progress':
-        return const Color(0xFFF59E0B); // Amber
-      case 'rejected':
-        return const Color(0xFFEF4444); // Red
-      default:
-        return const Color(0xFFF97316); // Orange (Primary)
+      case 'resolved':    return const Color(0xFF10B981); // Emerald
+      case 'in_progress': return const Color(0xFFF59E0B); // Amber
+      case 'rejected':    return const Color(0xFFEF4444); // Red
+      default:            return const Color(0xFFF97316); // Orange (Primary)
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'resolved':
-        return 'RESOLVED';
-      case 'in_progress':
-        return 'IN PROGRESS';
-      case 'rejected':
-        return 'REJECTED';
-      default:
-        return 'OPEN';
+      case 'resolved':    return 'RESOLVED';
+      case 'in_progress': return 'IN PROGRESS';
+      case 'rejected':    return 'REJECTED';
+      default:            return 'OPEN';
     }
   }
 
   IconData _catIcon(String c) {
     switch (c) {
-      case 'Road Damage':
-        return Icons.construction_rounded;
-      case 'Street Light':
-        return Icons.lightbulb_outline_rounded;
-      case 'Garbage':
-        return Icons.delete_outline_rounded;
-      case 'Water Leakage':
-        return Icons.water_drop_outlined;
-      case 'Traffic Signal':
-        return Icons.traffic_rounded;
-      case 'Encroachment':
-        return Icons.warning_amber_rounded;
-      case 'Tree Fallen':
-        return Icons.park_outlined;
-      default:
-        return Icons.report_problem_outlined;
+      case 'Road Damage':    return Icons.construction_rounded;
+      case 'Street Light':   return Icons.lightbulb_outline_rounded;
+      case 'Garbage':        return Icons.delete_outline_rounded;
+      case 'Water Leakage':  return Icons.water_drop_outlined;
+      case 'Traffic Signal': return Icons.traffic_rounded;
+      case 'Encroachment':   return Icons.warning_amber_rounded;
+      case 'Tree Fallen':    return Icons.park_outlined;
+      default:               return Icons.report_problem_outlined;
     }
   }
 
   Color _catColor(String c) {
     switch (c) {
-      case 'Road Damage':
-        return const Color(0xFFE65100);
-      case 'Street Light':
-        return const Color(0xFFFFB300);
-      case 'Garbage':
-        return const Color(0xFF2E7D32);
-      case 'Water Leakage':
-        return const Color(0xFF1565C0);
-      case 'Traffic Signal':
-        return const Color(0xFF6A1B9A);
-      case 'Encroachment':
-        return const Color(0xFFC62828);
-      case 'Tree Fallen':
-        return const Color(0xFF00695C);
-      default:
-        return const Color(0xFF455A64);
+      case 'Road Damage':    return const Color(0xFFE65100);
+      case 'Street Light':   return const Color(0xFFFFB300);
+      case 'Garbage':        return const Color(0xFF2E7D32);
+      case 'Water Leakage':  return const Color(0xFF1565C0);
+      case 'Traffic Signal': return const Color(0xFF6A1B9A);
+      case 'Encroachment':   return const Color(0xFFC62828);
+      case 'Tree Fallen':    return const Color(0xFF00695C);
+      default:               return const Color(0xFF455A64);
     }
   }
 
@@ -128,11 +106,10 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
 
   // ── Issue card ────────────────────────────────────────────────────
   Widget _card(Map<String, dynamic> d, String docId) {
-    final status = (d['status'] as String?) ?? 'open';
+    final status   = (d['status']   as String?) ?? 'open';
     final category = (d['category'] as String?) ?? 'Other Issue';
     final catColor = _catColor(category);
-    final stColor = _statusColor(status);
-    final previewImage = firstImageUrlFromIssueData(d);
+    final stColor  = _statusColor(status);
 
     return GestureDetector(
       onTap: () {
@@ -166,16 +143,15 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
               decoration: BoxDecoration(
                 color: catColor,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(18),
-                ),
+                    top: Radius.circular(18)),
               ),
             ),
 
             // Optional image
-            if ((previewImage)?.isNotEmpty == true)
+            if ((d['imageUrl'] as String?)?.isNotEmpty == true)
               ClipRRect(
                 child: Image.network(
-                  previewImage!,
+                  d['imageUrl'] as String,
                   height: 130,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -211,11 +187,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                           color: catColor.withOpacity(0.10),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(
-                          _catIcon(category),
-                          color: catColor,
-                          size: 20,
-                        ),
+                        child: Icon(_catIcon(category),
+                            color: catColor, size: 20),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -236,9 +209,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                             Text(
                               category,
                               style: TextStyle(
-                                color: Colors.grey.shade500,
-                                fontSize: 12,
-                              ),
+                                  color: Colors.grey.shade500, fontSize: 12),
                             ),
                           ],
                         ),
@@ -269,7 +240,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                   // Footer row
                   Row(
                     children: [
-                      Icon(Icons.tag_rounded, size: 13, color: catColor),
+                      Icon(Icons.tag_rounded,
+                          size: 13, color: catColor),
                       const SizedBox(width: 3),
                       Flexible(
                         child: Text(
@@ -283,32 +255,22 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                         ),
                       ),
                       const Spacer(),
-                      Icon(
-                        Icons.location_city_outlined,
-                        size: 12,
-                        color: Colors.grey.shade400,
-                      ),
+                      Icon(Icons.location_city_outlined,
+                          size: 12, color: Colors.grey.shade400),
                       const SizedBox(width: 3),
                       Text(
                         'Ward ${(d['wardNo'] ?? '—')}',
                         style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 11,
-                        ),
+                            color: Colors.grey.shade400, fontSize: 11),
                       ),
                       const SizedBox(width: 10),
-                      Icon(
-                        Icons.calendar_today_outlined,
-                        size: 12,
-                        color: Colors.grey.shade400,
-                      ),
+                      Icon(Icons.calendar_today_outlined,
+                          size: 12, color: Colors.grey.shade400),
                       const SizedBox(width: 3),
                       Text(
                         _formatDate(d['createdAt']),
                         style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 11,
-                        ),
+                            color: Colors.grey.shade400, fontSize: 11),
                       ),
                     ],
                   ),
@@ -336,7 +298,10 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 5),
           Text(
@@ -381,8 +346,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
           final err = snap.error.toString();
           final isIndexError =
               err.contains('index') || err.contains('FAILED_PRECONDITION');
-          final isPermissionError =
-              err.contains('permission-denied') || err.contains('permission');
+          final isPermissionError = err.contains('permission-denied') || err.contains('permission');
 
           return Center(
             child: Padding(
@@ -424,10 +388,10 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                   Text(
                     isIndexError
                         ? 'A Firestore composite index is needed.\n'
-                            'Check the debug console for the direct link to create it.'
+                          'Check the debug console for the direct link to create it.'
                         : isPermissionError
                             ? 'Your Firestore security rules are blocking this request. '
-                                'Please ensure rules allow reading from "issues" collection.'
+                              'Please ensure rules allow reading from "issues" collection.'
                             : err,
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -440,23 +404,16 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Theme.of(context).colorScheme.primary,
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                      side: BorderSide(color: Theme.of(context).colorScheme.primary),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
+                          horizontal: 20, vertical: 12),
                     ),
                     onPressed: () => setState(() {}),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text(
-                      'Retry',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
+                    label: const Text('Retry',
+                        style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),
@@ -467,10 +424,10 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
         // Sort client-side — descending by createdAt
         final docs = List<QueryDocumentSnapshot>.from(snap.data?.docs ?? [])
           ..sort((a, b) {
-            final at =
-                (a.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-            final bt =
-                (b.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+            final at = (a.data() as Map<String, dynamic>)['createdAt']
+                as Timestamp?;
+            final bt = (b.data() as Map<String, dynamic>)['createdAt']
+                as Timestamp?;
             if (at == null && bt == null) return 0;
             if (at == null) return 1;
             if (bt == null) return -1;
@@ -483,11 +440,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.inbox_outlined,
-                  size: 72,
-                  color: Colors.grey.shade300,
-                ),
+                Icon(Icons.inbox_outlined,
+                    size: 72, color: Colors.grey.shade300),
                 const SizedBox(height: 16),
                 Text(
                   statusFilter == null
@@ -502,7 +456,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                 const SizedBox(height: 6),
                 Text(
                   'Tap the button below to report a civic issue',
-                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                  style: TextStyle(
+                      color: Colors.grey.shade400, fontSize: 13),
                 ),
                 const SizedBox(height: 22),
                 ElevatedButton.icon(
@@ -511,19 +466,14 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                        borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 22,
-                      vertical: 13,
-                    ),
+                        horizontal: 22, vertical: 13),
                   ),
                   onPressed: () => Navigator.pushNamed(context, '/report'),
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text(
-                    'Report Issue',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  label: const Text('Report Issue',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -568,22 +518,23 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
           labelStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
+              fontWeight: FontWeight.w700, fontSize: 13),
           tabs: const [
             Tab(icon: Icon(Icons.list_alt_rounded, size: 18), text: 'All'),
             Tab(icon: Icon(Icons.pending_outlined, size: 18), text: 'Open'),
             Tab(
-              icon: Icon(Icons.check_circle_outline_rounded, size: 18),
-              text: 'Resolved',
-            ),
+                icon: Icon(Icons.check_circle_outline_rounded, size: 18),
+                text: 'Resolved'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [_tabView(null), _tabView('open'), _tabView('resolved')],
+        children: [
+          _tabView(null),
+          _tabView('open'),
+          _tabView('resolved'),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -594,14 +545,105 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
           Navigator.pushNamed(context, '/report');
         },
         icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'Report Issue',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
+        label: const Text('Report Issue',
+            style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }
 }
+
+class _VoicePlayerWidget extends StatefulWidget {
+  final String url;
+  const _VoicePlayerWidget({required this.url});
+
+  @override
+  State<_VoicePlayerWidget> createState() => _VoicePlayerWidgetState();
+}
+
+class _VoicePlayerWidgetState extends State<_VoicePlayerWidget> {
+  final AudioPlayer _player = AudioPlayer();
+  PlayerState _state = PlayerState.stopped;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _player.onPlayerStateChanged.listen((s) {
+      if (mounted) setState(() => _state = s);
+    });
+    _player.onDurationChanged.listen((d) {
+      if (mounted) setState(() => _duration = d);
+    });
+    _player.onPositionChanged.listen((p) {
+      if (mounted) setState(() => _position = p);
+    });
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isPlaying = _state == PlayerState.playing;
+    return Row(
+      children: [
+        IconButton.filledTonal(
+          onPressed: () {
+            if (isPlaying) {
+              _player.pause();
+            } else {
+              _player.play(UrlSource(widget.url));
+            }
+          },
+          icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            children: [
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 2,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                ),
+                child: Slider(
+                  value: _position.inMilliseconds.toDouble(),
+                  max: _duration.inMilliseconds.toDouble() > 0 
+                      ? _duration.inMilliseconds.toDouble() 
+                      : 1.0,
+                  onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(_fmt(_position), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text(_fmt(_duration), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _fmt(Duration d) {
+    final mm = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final ss = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════
 //  ISSUE DETAIL SCREEN
@@ -610,32 +652,28 @@ class IssueDetailScreen extends StatelessWidget {
   final Map<String, dynamic> data;
   final String docId;
 
-  const IssueDetailScreen({super.key, required this.data, required this.docId});
+  const IssueDetailScreen({
+    super.key,
+    required this.data,
+    required this.docId,
+  });
 
   Color _statusColor(BuildContext context, String s) {
     final colorScheme = Theme.of(context).colorScheme;
     switch (s) {
-      case 'resolved':
-        return colorScheme.tertiary;
-      case 'in_progress':
-        return Colors.orange;
-      case 'rejected':
-        return colorScheme.error;
-      default:
-        return colorScheme.secondary;
+      case 'resolved':    return colorScheme.tertiary;
+      case 'in_progress': return Colors.orange;
+      case 'rejected':    return colorScheme.error;
+      default:            return colorScheme.secondary;
     }
   }
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'resolved':
-        return 'Resolved';
-      case 'in_progress':
-        return 'In Progress';
-      case 'rejected':
-        return 'Rejected';
-      default:
-        return 'Open';
+      case 'resolved':    return 'Resolved';
+      case 'in_progress': return 'In Progress';
+      case 'rejected':    return 'Rejected';
+      default:            return 'Open';
     }
   }
 
@@ -669,11 +707,7 @@ class IssueDetailScreen extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(
-              icon,
-              size: 17,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            child: Icon(icon, size: 17, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -682,7 +716,8 @@ class IssueDetailScreen extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.grey.shade500),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -697,6 +732,28 @@ class IssueDetailScreen extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _voicePlayerRow(BuildContext context, String url) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(Icons.mic_none_rounded, size: 17, color: Theme.of(context).colorScheme.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: _VoicePlayerWidget(url: url)),
         ],
       ),
     );
@@ -720,7 +777,8 @@ class IssueDetailScreen extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: done ? color.withOpacity(0.12) : Colors.grey.shade100,
+                color:
+                    done ? color.withOpacity(0.12) : Colors.grey.shade100,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: done ? color : Colors.grey.shade300,
@@ -752,7 +810,8 @@ class IssueDetailScreen extends StatelessWidget {
         const SizedBox(width: 14),
         Expanded(
           child: Padding(
-            padding: EdgeInsets.only(top: 8, bottom: isLast ? 0 : 22),
+            padding:
+                EdgeInsets.only(top: 8, bottom: isLast ? 0 : 22),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -761,8 +820,9 @@ class IssueDetailScreen extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color:
-                        done ? const Color(0xFF0F172A) : Colors.grey.shade400,
+                    color: done
+                        ? const Color(0xFF0F172A)
+                        : Colors.grey.shade400,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -770,7 +830,9 @@ class IssueDetailScreen extends StatelessWidget {
                   sub,
                   style: TextStyle(
                     fontSize: 12,
-                    color: done ? Colors.grey.shade500 : Colors.grey.shade300,
+                    color: done
+                        ? Colors.grey.shade500
+                        : Colors.grey.shade300,
                     height: 1.4,
                   ),
                 ),
@@ -783,11 +845,7 @@ class IssueDetailScreen extends StatelessWidget {
   }
 
   // ── White card container ──────────────────────────────────────────
-  Widget _infoCard(
-    BuildContext context, {
-    String? title,
-    required Widget child,
-  }) {
+  Widget _infoCard(BuildContext context, {String? title, required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -825,27 +883,23 @@ class IssueDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = (data['status'] as String?) ?? 'open';
-    final category = (data['category'] as String?) ?? 'Other';
-    final stColor = _statusColor(context, status);
+    final status     = (data['status']   as String?) ?? 'open';
+    final category   = (data['category'] as String?) ?? 'Other';
+    final stColor    = _statusColor(context, status);
     final isAssigned = status == 'in_progress' || status == 'resolved';
     final isResolved = status == 'resolved';
     final isRejected = status == 'rejected';
-    final media = mediaFromIssueData(data);
-    final previewImage = firstImageUrlFromIssueData(data);
-    final extraMedia = media
-        .where((item) => !item.isImage || item.downloadUrl != previewImage)
-        .toList();
 
     // Priority display
-    final priority = (data['priority'] as String?);
+    final priority   = (data['priority'] as String?);
     final prioColors = {
       'urgent': const Color(0xFFDC2626),
-      'high': const Color(0xFFEA580C),
+      'high':   const Color(0xFFEA580C),
       'normal': const Color(0xFF16A34A),
     };
-    final prioColor =
-        priority != null ? (prioColors[priority] ?? Colors.grey) : null;
+    final prioColor = priority != null
+        ? (prioColors[priority] ?? Colors.grey)
+        : null;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
@@ -853,7 +907,8 @@ class IssueDetailScreen extends StatelessWidget {
         slivers: [
           // ── SliverAppBar with image ────────────────────────────
           SliverAppBar(
-            expandedHeight: (previewImage)?.isNotEmpty == true ? 250 : 120,
+            expandedHeight:
+                (data['imageUrl'] as String?)?.isNotEmpty == true ? 250 : 120,
             pinned: true,
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
@@ -862,14 +917,17 @@ class IssueDetailScreen extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              background: (previewImage)?.isNotEmpty == true
+              background: (data['imageUrl'] as String?)?.isNotEmpty == true
                   ? Image.network(
-                      previewImage!,
+                      data['imageUrl'] as String,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFFBF360C), Color(0xFFFF8F00)],
+                            colors: [
+                              Color(0xFFBF360C),
+                              Color(0xFFFF8F00),
+                            ],
                           ),
                         ),
                       ),
@@ -879,7 +937,10 @@ class IssueDetailScreen extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xFFBF360C), Color(0xFFFF8F00)],
+                          colors: [
+                            Color(0xFFBF360C),
+                            Color(0xFFFF8F00),
+                          ],
                         ),
                       ),
                       child: const Center(
@@ -900,6 +961,7 @@ class IssueDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+
                   // Title card
                   _infoCard(
                     context,
@@ -924,15 +986,12 @@ class IssueDetailScreen extends StatelessWidget {
                             // Status badge
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 11,
-                                vertical: 6,
-                              ),
+                                  horizontal: 11, vertical: 6),
                               decoration: BoxDecoration(
                                 color: stColor.withOpacity(0.10),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: stColor.withOpacity(0.30),
-                                ),
+                                    color: stColor.withOpacity(0.30)),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -964,9 +1023,7 @@ class IssueDetailScreen extends StatelessWidget {
                         Text(
                           category,
                           style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 13,
-                          ),
+                              color: Colors.grey.shade500, fontSize: 13),
                         ),
 
                         // Priority badge
@@ -974,15 +1031,12 @@ class IssueDetailScreen extends StatelessWidget {
                           const SizedBox(height: 10),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: prioColor!.withOpacity(0.08),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: prioColor.withOpacity(0.25),
-                              ),
+                                  color: prioColor.withOpacity(0.25)),
                             ),
                             child: Text(
                               '${priority[0].toUpperCase()}${priority.substring(1)} Priority',
@@ -1000,24 +1054,19 @@ class IssueDetailScreen extends StatelessWidget {
                         // Track ID chip
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 11,
-                          ),
+                              horizontal: 14, vertical: 11),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFF3E0),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFFFFB300).withOpacity(0.4),
-                            ),
+                                color: const Color(0xFFFFB300)
+                                    .withOpacity(0.4)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.tag_rounded,
-                                color: Theme.of(context).colorScheme.primary,
-                                size: 17,
-                              ),
+                              Icon(Icons.tag_rounded,
+                                  color: Theme.of(context).colorScheme.primary, size: 17),
                               const SizedBox(width: 7),
                               Text(
                                 (data['trackId'] as String?) ?? '—',
@@ -1036,32 +1085,15 @@ class IssueDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  if (extraMedia.isNotEmpty) ...[
-                    _infoCard(
-                      context,
-                      title: 'Attachments',
-                      child: IssueMediaSection(
-                        media: extraMedia,
-                        showTitle: false,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-
                   // Info card
                   _infoCard(
                     context,
                     title: 'Complaint Details',
                     child: Column(
                       children: [
-                        if ((data['description'] as String?)?.isNotEmpty ==
-                            true)
-                          _row(
-                            context,
-                            Icons.description_outlined,
-                            'Description',
-                            data['description'] as String,
-                          ),
+                        if ((data['description'] as String?)?.isNotEmpty == true)
+                          _row(context, Icons.description_outlined, 'Description',
+                              data['description'] as String),
                         _row(
                           context,
                           Icons.location_city_outlined,
@@ -1074,9 +1106,19 @@ class IssueDetailScreen extends StatelessWidget {
                             Icons.location_on_outlined,
                             'GPS Location',
                             'Lat: ${(data['latitude'] as num).toStringAsFixed(5)}'
-                                '\nLng: ${(data['longitude'] as num).toStringAsFixed(5)}',
+                            '\nLng: ${(data['longitude'] as num).toStringAsFixed(5)}',
                           ),
-                        if ((data['assignedTo'] as String?)?.isNotEmpty == true)
+                        if ((data['manualAddress'] as String?)?.isNotEmpty == true)
+                          _row(
+                            context,
+                            Icons.map_outlined,
+                            'Manual Address / Landmark',
+                            data['manualAddress'] as String,
+                          ),
+                        if ((data['voiceUrl'] as String?)?.isNotEmpty == true)
+                          _voicePlayerRow(context, data['voiceUrl'] as String),
+                        if ((data['assignedTo'] as String?)?.isNotEmpty ==
+                            true)
                           _row(
                             context,
                             Icons.business_outlined,
@@ -1093,14 +1135,16 @@ class IssueDetailScreen extends StatelessWidget {
                           context,
                           Icons.calendar_today_outlined,
                           'Filed On',
-                          _formatDate(data['createdAt'], includeTime: true),
+                          _formatDate(data['createdAt'],
+                              includeTime: true),
                         ),
                         if (isResolved || isRejected)
                           _row(
                             context,
                             Icons.update_rounded,
                             isResolved ? 'Resolved On' : 'Closed On',
-                            _formatDate(data['updatedAt'], includeTime: true),
+                            _formatDate(data['updatedAt'],
+                                includeTime: true),
                           ),
                       ],
                     ),
@@ -1116,7 +1160,8 @@ class IssueDetailScreen extends StatelessWidget {
                         _step(
                           Icons.send_rounded,
                           'Submitted',
-                          _formatDate(data['createdAt'], includeTime: true),
+                          _formatDate(data['createdAt'],
+                              includeTime: true),
                           const Color(0xFF2563EB),
                           true,
                           false,
@@ -1139,10 +1184,8 @@ class IssueDetailScreen extends StatelessWidget {
                               : Icons.check_circle_outline_rounded,
                           isRejected ? 'Rejected' : 'Resolved',
                           isResolved
-                              ? _formatDate(
-                                  data['updatedAt'],
-                                  includeTime: true,
-                                )
+                              ? _formatDate(data['updatedAt'],
+                                  includeTime: true)
                               : isRejected
                                   ? 'This complaint was rejected by BMC'
                                   : 'Pending resolution',
@@ -1164,7 +1207,8 @@ class IssueDetailScreen extends StatelessWidget {
                       title: 'Admin Notes',
                       child: Column(
                         children: [
-                          for (final c in data['comments'] as List<dynamic>)
+                          for (final c
+                              in data['comments'] as List<dynamic>)
                             Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(12),
@@ -1172,11 +1216,11 @@ class IssueDetailScreen extends StatelessWidget {
                                 color: const Color(0xFFF8FAFF),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: const Color(0xFFE8ECF4),
-                                ),
+                                    color: const Color(0xFFE8ECF4)),
                               ),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     (c as Map<String, dynamic>)['text']

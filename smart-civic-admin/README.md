@@ -96,25 +96,6 @@ Open browser at: http://localhost:5173
 
 ---
 
-## STEP 5.5 — Firebase Storage Rules
-
-For complaint media uploads, publish Storage rules equivalent to:
-
-```txt
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /issues/{issueId}/{fileName} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}
-```
-
-This repo also includes the same rules in `storage.rules`.
-
----
-
 ## STEP 6 — Build for Production
 
 ```bash

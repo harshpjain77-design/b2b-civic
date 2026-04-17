@@ -12,7 +12,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBN1oxt48PaeKy1d1EDHTFXo5INJlKZYbM",
   authDomain: "smartcivic-996df.firebaseapp.com",
   projectId: "smartcivic-996df",
-  storageBucket: "smartcivic-996df.firebasestorage.app",
+  storageBucket: "smartcivic-996df.appspot.com",
   messagingSenderId: "374041201622",
   appId: "1:374041201622:web:353a8d23c94b4806067277",
   measurementId: "G-2VPC21J7X3"
