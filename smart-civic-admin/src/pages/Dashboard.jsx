@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -148,24 +148,36 @@ function StatusDot({ color, label, value, total }) {
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-export default function Dashboard() {
+export default function Dashboard({ user }) {
   const [issues, setIssues] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isHOD = user.role === 'hod';
+
   useEffect(() => {
-    const u1 = onSnapshot(collection(db, 'issues'), s => {
+    const baseRef = collection(db, 'issues');
+    const q = (isHOD && user.department)
+      ? query(baseRef, where('assignedTo', '==', user.department))
+      : baseRef;
+
+    const u1 = onSnapshot(q, s => {
       setIssues(s.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
-    }, () => setLoading(false));
+    }, (err) => {
+      console.warn("Dashboard Issues Error:", err);
+      setIssues([]);
+      setLoading(false);
+    });
+
     const u2 = onSnapshot(collection(db, 'users'), s => {
       setUsers(s.docs.map(d => ({ id: d.id, ...d.data() })));
     });
     return () => { u1(); u2(); };
-  }, []);
+  }, [isHOD, user.department]);
 
   const total = issues.length;
-  const open = issues.filter(i => i.status === 'open').length;
+  const open = issues.filter(i => i.status === 'open' || i.status === 'assigned').length;
   const inProg = issues.filter(i => i.status === 'in_progress').length;
   const resolved = issues.filter(i => i.status === 'resolved').length;
   const rejected = issues.filter(i => i.status === 'rejected').length;
@@ -179,7 +191,8 @@ export default function Dashboard() {
   // Chart hex codes fallback (Recharts needs exact colors, CSS vars do not work natively inside rechart elements without tricks, 
   // but they DO work inside <Cell> fill="var(--color)")
   const pieData = [
-    { name: 'Open', value: open, color: 'var(--blue)' },
+    { name: 'New', value: issues.filter(i => i.status === 'open').length, color: 'var(--blue)' },
+    { name: 'Assigned', value: issues.filter(i => i.status === 'assigned').length, color: 'var(--accent)' },
     { name: 'In Progress', value: inProg, color: 'var(--orange)' },
     { name: 'Resolved', value: resolved, color: 'var(--green)' },
     { name: 'Rejected', value: rejected, color: 'var(--red)' },
@@ -224,10 +237,10 @@ export default function Dashboard() {
       }}>
         <div>
           <h1 style={{ fontFamily: 'Syne', fontSize: 28, fontWeight: 800, color: 'var(--text)', margin: 0, letterSpacing: -0.5 }}>
-            Dashboard
+            {isHOD ? `${user.department} Portal` : 'Dashboard'}
           </h1>
           <p style={{ color: 'var(--text2)', fontSize: 14, marginTop: 5 }}>
-            Live overview ·{' '}
+            {isHOD ? 'Department Performance Overview' : 'Live overview'} ·{' '}
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
@@ -246,24 +259,24 @@ export default function Dashboard() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '8px 16px', borderRadius: 11,
-            background: open > 0 ? 'var(--blueBg)' : 'var(--greenBg)',
-            border: `1px solid ${open > 0 ? 'var(--blueBd)' : 'var(--greenBd)'}`,
+            background: (open + inProg) > 0 ? 'var(--blueBg)' : 'var(--greenBg)',
+            border: `1px solid ${(open + inProg) > 0 ? 'var(--blueBd)' : 'var(--greenBd)'}`,
             fontSize: 13, fontWeight: 700,
-            color: open > 0 ? 'var(--blue)' : 'var(--green)',
+            color: (open + inProg) > 0 ? 'var(--blue)' : 'var(--green)',
           }}>
             <Ic d={ICONS.file} size={14} />
-            {open} Open
+            {open + inProg} Active
           </div>
         </div>
       </div>
 
       {/* ── KPI Row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
-        <KPI delay={0} iconKey="total" label="Total Complaints" value={total} sub={`${resRate}% resolved`} />
-        <KPI delay={0.05} iconKey="open" label="Open Cases" value={open} color="var(--blue)" bg="var(--blueBg)" bd="var(--blueBd)" />
+        <KPI delay={0} iconKey="total" label="Dept Complaints" value={total} sub={`${resRate}% resolved`} />
+        <KPI delay={0.05} iconKey="open" label="Open / Assigned" value={open} color="var(--blue)" bg="var(--blueBg)" bd="var(--blueBd)" />
         <KPI delay={0.10} iconKey="progress" label="In Progress" value={inProg} color="var(--orange)" bg="var(--orangeBg)" bd="var(--orangeBd)" />
         <KPI delay={0.15} iconKey="resolved" label="Resolved" value={resolved} color="var(--green)" bg="var(--greenBg)" bd="var(--greenBd)" sub={`${rejected} rejected`} />
-        <KPI delay={0.20} iconKey="citizens" label="Citizens" value={citizens} color="var(--purple)" bg="var(--purpleBg)" bd="var(--purpleBd)" />
+        {!isHOD && <KPI delay={0.20} iconKey="citizens" label="Citizens" value={citizens} color="var(--purple)" bg="var(--purpleBg)" bd="var(--purpleBd)" />}
       </div>
 
       {/* ── Row 1: Trend + Pie ── */}

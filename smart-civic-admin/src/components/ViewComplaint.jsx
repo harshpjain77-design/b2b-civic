@@ -190,22 +190,26 @@ const ActBtn = memo(({ label, color, bg, bd, active, disabled, onClick }) => (
     disabled={disabled || active}
     onClick={onClick}
     style={{
-      padding: '10px 12px', borderRadius: 10, width: '100%',
+      padding: '12px 14px', borderRadius: 12, width: '100%',
       background: active ? bg : 'var(--surface)',
       border: `1.5px solid ${active ? bd : 'var(--border)'}`,
       color: active ? color : 'var(--text2)',
-      fontWeight: active ? 700 : 500,
-      fontSize: 12,
+      fontWeight: active ? 800 : 600,
+      fontSize: 13,
       cursor: active ? 'default' : 'pointer',
       opacity: active ? 0.65 : 1,
-      transition: 'all .15s',
+      transition: 'all .2s cubic-bezier(.4,0,.2,1)',
       outline: 'none', textAlign: 'left',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      boxShadow: active ? `0 4px 12px ${bg}22` : 'none',
     }}
     onMouseEnter={e => {
       if (!active && !disabled) {
         e.currentTarget.style.borderColor = bd;
         e.currentTarget.style.color = color;
         e.currentTarget.style.background = bg;
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.boxShadow = `0 4px 12px ${bg}22`;
       }
     }}
     onMouseLeave={e => {
@@ -213,18 +217,60 @@ const ActBtn = memo(({ label, color, bg, bd, active, disabled, onClick }) => (
         e.currentTarget.style.borderColor = 'var(--border)';
         e.currentTarget.style.color = 'var(--text2)';
         e.currentTarget.style.background = 'var(--surface)';
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
       }
     }}
   >{label}</button>
 ));
 
+// ─── Premium Button (For Main Actions) ──────────────────────────────────────────
+const PremiumBtn = memo(({ label, icon, onClick, disabled, loading, color = 'var(--accent)', bg = 'var(--accentBg)', bd = 'var(--accentBd)' }) => (
+  <button
+    disabled={disabled || loading}
+    onClick={onClick}
+    style={{
+      width: '100%', padding: '15px 18px', borderRadius: 14,
+      background: bg, border: `1.5px solid ${bd}`,
+      color: color, fontWeight: 800, fontSize: 14,
+      cursor: (disabled || loading) ? 'not-allowed' : 'pointer',
+      transition: 'all .25s cubic-bezier(.16,1,.3,1)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+      boxShadow: `0 4px 14px ${bg}`,
+      outline: 'none',
+    }}
+    onMouseEnter={e => {
+      if (!disabled && !loading) {
+        e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)';
+        e.currentTarget.style.boxShadow = `0 8px 20px ${bg}`;
+        e.currentTarget.style.filter = 'brightness(1.05)';
+      }
+    }}
+    onMouseLeave={e => {
+      if (!disabled && !loading) {
+        e.currentTarget.style.transform = 'translateY(0) scale(1)';
+        e.currentTarget.style.boxShadow = `0 4px 14px ${bg}`;
+        e.currentTarget.style.filter = 'none';
+      }
+    }}
+    onMouseDown={e => { if (!disabled && !loading) e.currentTarget.style.transform = 'translateY(0) scale(0.98)'; }}
+    onMouseUp={e => { if (!disabled && !loading) e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)'; }}
+  >
+    <Ic d={loading ? ICONS.cal : icon} size={18} sw={2.5} className={loading ? 'spin' : ''}/>
+    {loading ? 'Processing...' : label}
+  </button>
+));
+
 // ─── ViewComplaint ─────────────────────────────────────────────────────────────
-export default memo(function ViewComplaint({ issue, onClose }) {
+export default memo(function ViewComplaint({ issue, user, onClose }) {
   const [note,   setNote]   = useState('');
   const [dept,   setDept]   = useState(issue.assignedTo || '');
   const [saving, setSaving] = useState(false);
   const [toast,  setToast]  = useState({ msg: '', type: 'ok' });
   const timer = useRef(null);
+
+  const isHOD = user.role === 'hod';
+  const isSuper = user.role === 'super_admin' || user.role === 'admin';
 
   // Stable toast
   const showToast = useCallback((msg, type = 'ok') => {
@@ -239,6 +285,11 @@ export default memo(function ViewComplaint({ issue, onClose }) {
     window.addEventListener('keydown', h);
     return () => { window.removeEventListener('keydown', h); clearTimeout(timer.current); };
   }, [onClose]);
+
+  // Sync dept state with live prop
+  useEffect(() => {
+    if (issue.assignedTo) setDept(issue.assignedTo);
+  }, [issue.assignedTo]);
 
   const fmt = useCallback(ts => {
     if (!ts) return '—';
@@ -256,19 +307,20 @@ export default memo(function ViewComplaint({ issue, onClose }) {
     setSaving(false);
   }, [showToast]);
 
-  const updateStatus = useCallback((s, extra = {}) => run(async () => {
-    await updateDoc(doc(db, 'issues', issue.id), {
+  const updateStatus = useCallback((s, extra = {}, timelineStep = null) => run(async () => {
+    const payload = {
       status: s,
       updatedAt: serverTimestamp(),
       timeline: arrayUnion({
-        step: STATUS[s]?.label || s,
+        step: timelineStep || STATUS[s]?.label || s,
         time: new Date().toISOString(),
-        by: 'admin',
+        by: user.name || user.role,
       }),
       ...extra,
-    });
+    };
+    await updateDoc(doc(db, 'issues', issue.id), payload);
     showToast(`Status → "${STATUS[s]?.label || s}"`);
-  }), [issue.id, run, showToast]);
+  }), [issue.id, run, showToast, user.name, user.role]);
 
   const setPrio = useCallback(p => run(async () => {
     await updateDoc(doc(db, 'issues', issue.id), {
@@ -296,11 +348,12 @@ export default memo(function ViewComplaint({ issue, onClose }) {
 
   const stepDone = useCallback(key => {
     if (key === 'Reported')    return true;
-    if (key === 'Assigned')    return ['in_progress','resolved','rejected'].includes(issue.status);
+    if (key === 'Forwarded')   return !!issue.assignedTo;
+    if (key === 'Assigned')    return !!tl.find(t => t.step === 'Assigned') || ['in_progress','resolved','rejected'].includes(issue.status);
     if (key === 'In Progress') return ['resolved','rejected'].includes(issue.status);
     if (key === 'Resolved')    return issue.status === 'resolved';
     return false;
-  }, [issue.status]);
+  }, [issue.status, issue.assignedTo, tl]);
 
   const stepActive = useCallback(key =>
     (key === 'Reported'    && issue.status === 'open') ||
@@ -497,38 +550,63 @@ export default memo(function ViewComplaint({ issue, onClose }) {
               })}
             </Section>
 
-            {/* Assign */}
-            <Section label="Assign Department">
-              <select value={dept} onChange={e => setDept(e.target.value)} style={{
-                width: '100%', padding: '9px 12px', marginBottom: 10,
-                background: 'var(--surface)',
-                border: '1.5px solid var(--border)',
-                borderRadius: 9, color: 'var(--text)', fontSize: 13,
-                outline: 'none', cursor: 'pointer',
-              }}
-              onFocus={e => e.target.style.borderColor='var(--accent)'}
-              onBlur={e  => e.target.style.borderColor='var(--border)'}>
-                <option value="">Choose department...</option>
-                {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <button
-                disabled={!dept || saving}
-                onClick={() => { if (dept) updateStatus('in_progress', { assignedTo: dept }); }}
-                style={{
-                  width: '100%', padding: '10px', borderRadius: 9,
-                  border: 'none', outline: 'none',
-                  background: dept ? 'var(--blue)' : 'var(--surface2)',
-                  color: dept ? '#fff' : 'var(--text3)',
-                  fontWeight: 700, fontSize: 13,
-                  cursor: dept ? 'pointer' : 'not-allowed',
-                  transition: 'all .15s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}
-              >
-                <Ic d={ICONS.assign} size={14} sw={2}/>
-                Assign & Start Progress
-              </button>
+            {/* Assign / Forward */}
+            <Section label={isHOD ? "Assigned Department" : "Forward to Department"}>
+              {isHOD ? (
+                <div style={{
+                  padding: '12px', background: 'var(--accentBg)',
+                  border: '1px solid var(--accentBd)', borderRadius: 10,
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  color: 'var(--accent)', fontWeight: 700, fontSize: 13,
+                }}>
+                  <Ic d={ICONS.check} size={14} sw={3} />
+                  {issue.assignedTo || 'Unassigned'}
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <select value={dept} onChange={e => setDept(e.target.value)} style={{
+                      width: '100%', padding: '12px 15px',
+                      background: 'var(--surface)',
+                      border: '2px solid var(--border)',
+                      borderRadius: 12, color: 'var(--text)', fontSize: 14,
+                      fontWeight: 600, outline: 'none', cursor: 'pointer',
+                      transition: 'border-color .2s',
+                    }}
+                    onFocus={e => e.target.style.borderColor='var(--accent)'}
+                    onBlur={e  => e.target.style.borderColor='var(--border)'}>
+                      <option value="">Choose department...</option>
+                      {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <PremiumBtn
+                      label={saving ? 'Assigning...' : 'Assign to Department'}
+                      icon={ICONS.assign}
+                      disabled={!dept}
+                      loading={saving}
+                      bg="var(--blue)"
+                      bd="var(--blueBd)"
+                      color="#fff"
+                      onClick={() => { if (dept) updateStatus('assigned', { assignedTo: dept }, 'Sent to Department'); }}
+                    />
+                  </div>
+                </>
+              )}
             </Section>
+
+             {/* HOD Quick Actions */}
+            {isHOD && issue.assignedTo === user.department && !tl.find(t => t.step === 'Assigned') && (
+               <Section label="Immediate Actions">
+                 <PremiumBtn
+                    label={saving ? 'Processing...' : 'Acknowledge & Accept Complaint'}
+                    icon={ICONS.check}
+                    loading={saving}
+                    bg="var(--green)"
+                    bd="var(--greenBd)"
+                    color="#fff"
+                    onClick={() => updateStatus('in_progress', {}, 'Assigned')}
+                  />
+               </Section>
+            )}
 
             {/* Notes */}
             <Section label={`Admin Notes${cm.length ? ` (${cm.length})` : ''}`}>

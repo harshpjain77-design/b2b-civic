@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../services/theme_service.dart';
+import '../services/language_service.dart';
 
 // ═══════════════════════════════════════════════════════════
 //  MY ISSUES SCREEN
@@ -39,7 +40,13 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
     Query q = FirebaseFirestore.instance
         .collection('issues')
         .where('userId', isEqualTo: _uid);
-    if (status != null) q = q.where('status', isEqualTo: status);
+    if (status != null) {
+      if (status == 'open') {
+        q = q.where('status', whereIn: ['open', 'assigned']);
+      } else {
+        q = q.where('status', isEqualTo: status);
+      }
+    }
     return q.snapshots();
   }
 
@@ -47,18 +54,20 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
   Color _statusColor(String s) {
     switch (s) {
       case 'resolved':    return const Color(0xFF10B981); // Emerald
+      case 'assigned':    return const Color(0xFF3B82F6); // Blue
       case 'in_progress': return const Color(0xFFF59E0B); // Amber
       case 'rejected':    return const Color(0xFFEF4444); // Red
       default:            return const Color(0xFFF97316); // Orange (Primary)
     }
   }
 
-  String _statusLabel(String s) {
+  String _statusLabel(String s, LanguageService ls) {
     switch (s) {
-      case 'resolved':    return 'RESOLVED';
-      case 'in_progress': return 'IN PROGRESS';
-      case 'rejected':    return 'REJECTED';
-      default:            return 'OPEN';
+      case 'resolved':    return ls.translate('resolved').toUpperCase();
+      case 'assigned':    return ls.translate('assigned').toUpperCase();
+      case 'in_progress': return ls.translate('in_progress').toUpperCase();
+      case 'rejected':    return ls.translate('rejected').toUpperCase();
+      default:            return ls.translate('open').toUpperCase();
     }
   }
 
@@ -105,7 +114,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
   }
 
   // ── Issue card ────────────────────────────────────────────────────
-  Widget _card(Map<String, dynamic> d, String docId) {
+  Widget _card(BuildContext context, Map<String, dynamic> d, String docId, LanguageService ls) {
     final status   = (d['status']   as String?) ?? 'open';
     final category = (d['category'] as String?) ?? 'Other Issue';
     final catColor = _catColor(category);
@@ -207,7 +216,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                             ),
                             const SizedBox(height: 1),
                             Text(
-                              category,
+                              ls.translate(category == 'Road Damage' ? 'cat_road' : (category == 'Street Light' ? 'cat_light' : (category == 'Garbage' ? 'cat_garbage' : (category == 'Water Leakage' ? 'cat_water' : (category == 'Traffic Signal' ? 'cat_traffic' : (category == 'Encroachment' ? 'cat_encroach' : (category == 'Tree Fallen' ? 'cat_tree' : 'cat_other'))))))),
                               style: TextStyle(
                                   color: Colors.grey.shade500, fontSize: 12),
                             ),
@@ -216,7 +225,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                       ),
                       const SizedBox(width: 8),
                       // Status badge
-                      _statusBadge(status, stColor),
+                      _statusBadge(status, stColor, ls),
                     ],
                   ),
 
@@ -259,7 +268,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                           size: 12, color: Colors.grey.shade400),
                       const SizedBox(width: 3),
                       Text(
-                        'Ward ${(d['wardNo'] ?? '—')}',
+                        '${ls.translate('ward')} ${(d['wardNo'] ?? '—')}',
                         style: TextStyle(
                             color: Colors.grey.shade400, fontSize: 11),
                       ),
@@ -284,7 +293,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
   }
 
   // ── Status badge widget ───────────────────────────────────────────
-  Widget _statusBadge(String status, Color color) {
+  Widget _statusBadge(String status, Color color, LanguageService ls) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -305,7 +314,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
           ),
           const SizedBox(width: 5),
           Text(
-            _statusLabel(status),
+            _statusLabel(status, ls),
             style: TextStyle(
               color: color,
               fontSize: 11,
@@ -320,13 +329,14 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
   // ── Tab content ───────────────────────────────────────────────────
   Widget _tabView(String? statusFilter) {
     if (_uid == null) {
-      return const Center(
+      return Center(
         child: Text(
           'Please log in again.',
-          style: TextStyle(color: Colors.grey),
+          style: const TextStyle(color: Colors.grey),
         ),
       );
     }
+    final ls = Provider.of<LanguageService>(context);
 
     return StreamBuilder<QuerySnapshot>(
       stream: _stream(statusFilter),
@@ -374,10 +384,10 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                   const SizedBox(height: 18),
                   Text(
                     isIndexError
-                        ? 'Firestore Index Required'
+                        ? ls.translate('firestore_index_required')
                         : isPermissionError
-                            ? 'Permission Denied'
-                            : 'Something went wrong',
+                            ? ls.translate('permission_denied')
+                            : ls.translate('something_went_wrong'),
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
@@ -387,11 +397,9 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                   const SizedBox(height: 8),
                   Text(
                     isIndexError
-                        ? 'A Firestore composite index is needed.\n'
-                          'Check the debug console for the direct link to create it.'
+                        ? ls.translate('index_needed_desc')
                         : isPermissionError
-                            ? 'Your Firestore security rules are blocking this request. '
-                              'Please ensure rules allow reading from "issues" collection.'
+                            ? ls.translate('permission_denied_desc')
                             : err,
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -412,8 +420,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                     ),
                     onPressed: () => setState(() {}),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Retry',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
+                    label: Text(ls.translate('retry'),
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),
@@ -445,8 +453,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                 const SizedBox(height: 16),
                 Text(
                   statusFilter == null
-                      ? 'No complaints filed yet'
-                      : 'No ${_statusLabel(statusFilter)} issues',
+                      ? ls.translate('no_complaints')
+                      : '${ls.translate('no_issues_found')} ${_statusLabel(statusFilter, ls)}',
                   style: TextStyle(
                     color: Colors.grey.shade500,
                     fontSize: 16,
@@ -455,7 +463,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Tap the button below to report a civic issue',
+                  ls.translate('tap_to_report'),
                   style: TextStyle(
                       color: Colors.grey.shade400, fontSize: 13),
                 ),
@@ -472,8 +480,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
                   ),
                   onPressed: () => Navigator.pushNamed(context, '/report'),
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Report Issue',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  label: Text(ls.translate('report_issue'),
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
@@ -491,7 +499,7 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
             itemCount: docs.length,
             itemBuilder: (_, i) {
               final d = docs[i].data() as Map<String, dynamic>;
-              return _card(d, docs[i].id);
+              return _card(context, d, docs[i].id, ls);
             },
           ),
         );
@@ -501,12 +509,13 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
 
   @override
   Widget build(BuildContext context) {
+    final ls = context.watch<LanguageService>();
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
-        title: const Text(
-          'My Complaints',
-          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        title: Text(
+          ls.translate('my_complaints'),
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
@@ -519,12 +528,12 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
           unselectedLabelColor: Colors.white60,
           labelStyle: const TextStyle(
               fontWeight: FontWeight.w700, fontSize: 13),
-          tabs: const [
-            Tab(icon: Icon(Icons.list_alt_rounded, size: 18), text: 'All'),
-            Tab(icon: Icon(Icons.pending_outlined, size: 18), text: 'Open'),
+          tabs: [
+            Tab(icon: const Icon(Icons.list_alt_rounded, size: 18), text: ls.translate('all')),
+            Tab(icon: const Icon(Icons.pending_outlined, size: 18), text: ls.translate('open')),
             Tab(
-                icon: Icon(Icons.check_circle_outline_rounded, size: 18),
-                text: 'Resolved'),
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                text: ls.translate('resolved')),
           ],
         ),
       ),
@@ -545,8 +554,8 @@ class _MyIssuesScreenState extends State<MyIssuesScreen>
           Navigator.pushNamed(context, '/report');
         },
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Report Issue',
-            style: TextStyle(fontWeight: FontWeight.w700)),
+        label: Text(ls.translate('report_issue'),
+            style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -662,18 +671,20 @@ class IssueDetailScreen extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     switch (s) {
       case 'resolved':    return colorScheme.tertiary;
+      case 'assigned':    return colorScheme.primary;
       case 'in_progress': return Colors.orange;
       case 'rejected':    return colorScheme.error;
       default:            return colorScheme.secondary;
     }
   }
 
-  String _statusLabel(String s) {
+  String _statusLabel(String s, LanguageService ls) {
     switch (s) {
-      case 'resolved':    return 'Resolved';
-      case 'in_progress': return 'In Progress';
-      case 'rejected':    return 'Rejected';
-      default:            return 'Open';
+      case 'resolved':    return ls.translate('resolved');
+      case 'assigned':    return ls.translate('assigned');
+      case 'in_progress': return ls.translate('in_progress');
+      case 'rejected':    return ls.translate('rejected');
+      default:            return ls.translate('open');
     }
   }
 
@@ -736,6 +747,8 @@ class IssueDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+
 
   Widget _voicePlayerRow(BuildContext context, String url) {
     return Padding(
@@ -883,6 +896,7 @@ class IssueDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ls = Provider.of<LanguageService>(context);
     final status     = (data['status']   as String?) ?? 'open';
     final category   = (data['category'] as String?) ?? 'Other';
     final stColor    = _statusColor(context, status);
@@ -912,9 +926,9 @@ class IssueDetailScreen extends StatelessWidget {
             pinned: true,
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
-            title: const Text(
-              'Issue Details',
-              style: TextStyle(fontWeight: FontWeight.w800),
+            title: Text(
+              ls.translate('complaint_details'),
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: (data['imageUrl'] as String?)?.isNotEmpty == true
@@ -1006,7 +1020,7 @@ class IssueDetailScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
-                                    _statusLabel(status),
+                                    _statusLabel(status, ls),
                                     style: TextStyle(
                                       color: stColor,
                                       fontWeight: FontWeight.w700,
@@ -1117,35 +1131,6 @@ class IssueDetailScreen extends StatelessWidget {
                           ),
                         if ((data['voiceUrl'] as String?)?.isNotEmpty == true)
                           _voicePlayerRow(context, data['voiceUrl'] as String),
-                        if ((data['assignedTo'] as String?)?.isNotEmpty ==
-                            true)
-                          _row(
-                            context,
-                            Icons.business_outlined,
-                            'Assigned To',
-                            data['assignedTo'] as String,
-                          ),
-                        _row(
-                          context,
-                          Icons.person_outline_rounded,
-                          'Reported By',
-                          (data['userName'] as String?) ?? '—',
-                        ),
-                        _row(
-                          context,
-                          Icons.calendar_today_outlined,
-                          'Filed On',
-                          _formatDate(data['createdAt'],
-                              includeTime: true),
-                        ),
-                        if (isResolved || isRejected)
-                          _row(
-                            context,
-                            Icons.update_rounded,
-                            isResolved ? 'Resolved On' : 'Closed On',
-                            _formatDate(data['updatedAt'],
-                                includeTime: true),
-                          ),
                       ],
                     ),
                   ),
@@ -1154,47 +1139,58 @@ class IssueDetailScreen extends StatelessWidget {
                   // Timeline card
                   _infoCard(
                     context,
-                    title: 'Status Timeline',
+                    title: ls.translate('status_timeline'),
                     child: Column(
                       children: [
-                        _step(
-                          Icons.send_rounded,
-                          'Submitted',
-                          _formatDate(data['createdAt'],
-                              includeTime: true),
-                          const Color(0xFF2563EB),
-                          true,
-                          false,
-                        ),
-                        _step(
-                          Icons.engineering_outlined,
-                          'Assigned & In Progress',
-                          isAssigned
-                              ? (data['assignedTo'] != null
-                                  ? 'Assigned to ${data['assignedTo']}'
-                                  : 'BMC team is working on this')
-                              : 'Awaiting assignment',
-                          const Color(0xFFEA580C),
-                          isAssigned,
-                          false,
-                        ),
-                        _step(
-                          isRejected
-                              ? Icons.cancel_outlined
-                              : Icons.check_circle_outline_rounded,
-                          isRejected ? 'Rejected' : 'Resolved',
-                          isResolved
-                              ? _formatDate(data['updatedAt'],
-                                  includeTime: true)
-                              : isRejected
-                                  ? 'This complaint was rejected by BMC'
-                                  : 'Pending resolution',
-                          isRejected
-                              ? const Color(0xFFDC2626)
-                              : const Color(0xFF16A34A),
-                          isResolved || isRejected,
-                          true,
-                        ),
+                        if ((data['timeline'] as List?)?.isNotEmpty == true)
+                          ...(data['timeline'] as List).asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final t   = entry.value as Map<String, dynamic>;
+                            final isLast = idx == (data['timeline'] as List).length - 1;
+                            
+                            // Determine color based on step content
+                            Color stepColor = const Color(0xFF2563EB); // Blue default
+                            IconData stepIcon = Icons.check_circle_outline_rounded;
+
+                            final stepStr = (t['step'] as String).toLowerCase();
+                            if (stepStr.contains('registered') || stepStr.contains('reported')) {
+                              stepColor = const Color(0xFF2563EB);
+                              stepIcon  = Icons.send_rounded;
+                            } else if (stepStr.contains('forwarded') || stepStr.contains('sent')) {
+                              stepColor = Colors.orange;
+                              stepIcon  = Icons.forward_to_inbox_rounded;
+                            } else if (stepStr.contains('assigned') || stepStr.contains('acknowledge')) {
+                              stepColor = Colors.teal;
+                              stepIcon  = Icons.assignment_ind_rounded;
+                            } else if (stepStr.contains('progress') || stepStr.contains('field')) {
+                              stepColor = Colors.amber.shade700;
+                              stepIcon  = Icons.engineering_outlined;
+                            } else if (stepStr.contains('resolved') || stepStr.contains('complete')) {
+                              stepColor = const Color(0xFF16A34A);
+                              stepIcon  = Icons.done_all_rounded;
+                            } else if (stepStr.contains('rejected')) {
+                              stepColor = const Color(0xFFDC2626);
+                              stepIcon  = Icons.cancel_outlined;
+                            }
+
+                            return _step(
+                              stepIcon,
+                              t['step'] as String,
+                              _formatDate(t['time'], includeTime: true),
+                              stepColor,
+                              true, // It's in the timeline, so it's done
+                              isLast,
+                            );
+                          }).toList()
+                        else
+                          _step(
+                            Icons.send_rounded,
+                            'Submitted',
+                            _formatDate(data['createdAt'], includeTime: true),
+                            const Color(0xFF2563EB),
+                            true,
+                            true,
+                          ),
                       ],
                     ),
                   ),

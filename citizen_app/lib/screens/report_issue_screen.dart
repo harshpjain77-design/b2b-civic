@@ -54,14 +54,14 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
   String? _voiceUrl;
 
   static const _cats = [
-    {'label':'Road Damage',    'icon':Icons.construction_rounded,   'color':Color(0xFFF97316)},
-    {'label':'Street Light',   'icon':Icons.lightbulb_outline,      'color':Color(0xFFFACC15)},
-    {'label':'Garbage',        'icon':Icons.delete_outline_rounded, 'color':Color(0xFF22C55E)},
-    {'label':'Water Leakage',  'icon':Icons.water_drop_outlined,    'color':Color(0xFF3B82F6)},
-    {'label':'Traffic Signal', 'icon':Icons.traffic_rounded,        'color':Color(0xFF8B5CF6)},
-    {'label':'Encroachment',   'icon':Icons.warning_amber_rounded,  'color':Color(0xFFEF4444)},
-    {'label':'Tree Fallen',    'icon':Icons.park_outlined,          'color':Color(0xFF10B981)},
-    {'label':'Other Issue',    'icon':Icons.more_horiz_rounded,     'color':Color(0xFF64748B)},
+    {'label':'cat_road',     'icon':Icons.construction_rounded,   'color':Color(0xFFF97316)},
+    {'label':'cat_light',    'icon':Icons.lightbulb_outline,      'color':Color(0xFFFACC15)},
+    {'label':'cat_garbage',  'icon':Icons.delete_outline_rounded, 'color':Color(0xFF22C55E)},
+    {'label':'cat_water',    'icon':Icons.water_drop_outlined,    'color':Color(0xFF3B82F6)},
+    {'label':'cat_traffic',  'icon':Icons.traffic_rounded,        'color':Color(0xFF8B5CF6)},
+    {'label':'cat_encroach', 'icon':Icons.warning_amber_rounded,  'color':Color(0xFFEF4444)},
+    {'label':'cat_tree',     'icon':Icons.park_outlined,          'color':Color(0xFF10B981)},
+    {'label':'cat_other',    'icon':Icons.more_horiz_rounded,     'color':Color(0xFF64748B)},
   ];
 
   @override
@@ -341,10 +341,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
 
   void _showSuccess(String trackId) {
     final cs = Theme.of(context).colorScheme;
+    final ls = context.read<LanguageService>();
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         backgroundColor: cs.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         contentPadding: const EdgeInsets.all(28),
@@ -357,68 +358,48 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
             child: Icon(Icons.check_circle_rounded,
                 color: cs.tertiary, size: 50)),
           const SizedBox(height: 16),
-          Text('Submitted!', style: TextStyle(
-              fontSize: 20, fontWeight: FontWeight.w800, color: cs.onSurface)),
-          const SizedBox(height: 8),
-          Text('Complaint registered with BMC.\nTrack it in My Issues.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: cs.onSurfaceVariant,
-                  fontSize: 13, height: 1.5)),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity, padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cs.primary.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: cs.primary.withOpacity(0.25))),
-            child: Column(children: [
-              Text('Track ID', style: TextStyle(
-                  fontSize: 11, color: cs.onSurfaceVariant)),
-              const SizedBox(height: 6),
-              Text(trackId, style: TextStyle(
-                  fontWeight: FontWeight.w800, color: cs.primary,
-                  fontSize: 17, letterSpacing: 1)),
-              const SizedBox(height: 4),
-              Text('Save this to track your complaint',
-                  style: TextStyle(
-                      color: cs.onSurfaceVariant.withOpacity(0.7),
-                      fontSize: 11)),
-            ]),
+          Text(ls.translate('submitted_title'), style: TextStyle(
+              fontSize: 22, fontWeight: FontWeight.w900, color: cs.onSurface)),
+          const SizedBox(height: 10),
+          Text(ls.translate('track_id'), 
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(trackId, style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.w800, color: cs.primary,
+              letterSpacing: 1.5, fontFamily: 'monospace')),
+          const SizedBox(height: 24),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: trackId));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(ls.translate('copied'))));
+                },
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: Text(ls.translate('copy_id'), style: const TextStyle(fontWeight: FontWeight.w700))),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: cs.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0),
+              onPressed: () {
+                Navigator.pop(ctx); // Close dialog
+                Navigator.pop(context); // Go back home
+              },
+              child: Text(ls.translate('done'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
           ),
         ]),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(children: [
-              Expanded(child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: cs.primary),
-                  foregroundColor: cs.primary,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 12)),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacementNamed(context, '/myIssues');
-                },
-                child: const Text('My Issues'))),
-              const SizedBox(width: 10),
-              Expanded(child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: cs.primary, foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 12)),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                child: const Text('Done',
-                    style: TextStyle(fontWeight: FontWeight.w700)))),
-            ]),
-          ),
-        ],
       ),
     );
   }
@@ -530,7 +511,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                                       color: sel ? Colors.white : col,
                                       size: 24)),
                                 const SizedBox(height: 7),
-                                Text(cat['label'] as String,
+                                Text(ls.translate(cat['label'] as String),
                                     textAlign: TextAlign.center,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -551,8 +532,8 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                   const SizedBox(height: 28),
 
                   // ── Title + Description ───────────────────
-                   _Lbl(label: ls.translate('issue_category'),
-                      icon: Icons.category_rounded),
+                   _Lbl(label: ls.translate('issue_details'),
+                      icon: Icons.description_rounded),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _titleCtrl,
@@ -560,7 +541,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                     decoration: _dec(ls.translate('title_hint')),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Please enter a title' : null),
+                        ? ls.translate('error_title_req') : null),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _descCtrl,
@@ -568,13 +549,13 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                     textCapitalization: TextCapitalization.sentences,
                     decoration: _dec(ls.translate('desc_hint')),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Please add a description' : null),
+                        ? ls.translate('error_desc_req') : null),
                   const SizedBox(height: 28),
 
                   const SizedBox(height: 28),
                   
                   // ── Voice Message ────────────────────────
-                  _Lbl(label: 'Voice Message (Optional)', 
+                  _Lbl(label: ls.translate('voice_msg'), 
                       icon: Icons.mic_rounded),
                   const SizedBox(height: 12),
                   _VoiceRecorderUI(
@@ -590,7 +571,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                   const SizedBox(height: 28),
 
                   // ── Photo ─────────────────────────────────
-                  _Lbl(label: 'Photo Evidence',
+                  _Lbl(label: ls.translate('photo_evidence'),
                       icon: Icons.camera_enhance_rounded),
                   const SizedBox(height: 12),
 
@@ -607,7 +588,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                   const SizedBox(height: 28),
 
                   // ── Location & Ward ──────────────────────
-                  _Lbl(label: 'Location & Ward',
+                  _Lbl(label: ls.translate('location_ward'),
                       icon: Icons.location_on_rounded),
                   const SizedBox(height: 12),
                   
@@ -624,7 +605,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                   TextFormField(
                     controller: _addressCtrl,
                     textCapitalization: TextCapitalization.sentences,
-                    decoration: _dec('Enter Manual Address / Nearby Landmark (Optional)'),
+                    decoration: _dec(ls.translate('manual_address')),
                     maxLines: 2,
                   ),
                   
@@ -634,11 +615,11 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
                   TextFormField(
                     controller: _wardCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: _dec('Confirm/Edit Ward Number (1-227)'),
+                    decoration: _dec(ls.translate('ward_confirm')),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Ward is required';
+                      if (v == null || v.trim().isEmpty) return ls.translate('error_ward_req');
                       final ward = int.tryParse(v);
-                      if (ward == null || ward < 1 || ward > 227) return 'Enter valid ward (1-227)';
+                      if (ward == null || ward < 1 || ward > 227) return ls.translate('error_ward_invalid');
                       return null;
                     },
                   ),
@@ -893,30 +874,33 @@ class _SubmitButton extends StatelessWidget {
   const _SubmitButton({required this.submitting, required this.uploading,
     required this.cs, required this.onSubmit});
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity, height: 60,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: cs.primary,
-        foregroundColor: Colors.white,
-        elevation: 6,
-        shadowColor: cs.primary.withOpacity(0.4),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20))),
-      onPressed: (submitting || uploading) ? null : onSubmit,
-      child: submitting
-        ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            SizedBox(width: 22, height: 22,
-              child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 3)),
-            SizedBox(width: 14),
-            Text('Sending to BMC...', style: TextStyle(
-                fontSize: 17, fontWeight: FontWeight.w800))])
-        : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.send_rounded, size: 22),
-            SizedBox(width: 12),
-            Text('Submit Complaint', style: TextStyle(
-                fontSize: 17, fontWeight: FontWeight.w900))])));
+  Widget build(BuildContext context) {
+    final ls = Provider.of<LanguageService>(context);
+    return SizedBox(
+      width: double.infinity, height: 60,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cs.primary,
+          foregroundColor: Colors.white,
+          elevation: 6,
+          shadowColor: cs.primary.withOpacity(0.4),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20))),
+        onPressed: (submitting || uploading) ? null : onSubmit,
+        child: submitting
+          ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const SizedBox(width: 22, height: 22,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 3)),
+              const SizedBox(width: 14),
+              Text(ls.translate('sending_to_bmc'), style: const TextStyle(
+                  fontSize: 17, fontWeight: FontWeight.w800))])
+          : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.send_rounded, size: 22),
+              const SizedBox(width: 12),
+              Text(ls.translate('submit_complaint'), style: const TextStyle(
+                  fontSize: 17, fontWeight: FontWeight.w900))])));
+  }
 }
 
 class _VoiceRecorderUI extends StatelessWidget {
@@ -937,6 +921,7 @@ class _VoiceRecorderUI extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ls = Provider.of<LanguageService>(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -972,7 +957,7 @@ class _VoiceRecorderUI extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  recording ? "Recording..." : (audioPath != null ? "Voice Message Recorded" : "Tap to record voice message"),
+                  recording ? ls.translate('recording') : (audioPath != null ? ls.translate('voice_recorded') : ls.translate('tap_to_record')),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -986,7 +971,7 @@ class _VoiceRecorderUI extends StatelessWidget {
                   ),
                 if (audioPath != null && !recording)
                   Text(
-                    "You can preview it before submitting",
+                    ls.translate('preview_hint'),
                     style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
               ],

@@ -2,31 +2,12 @@ import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import {
   collection, onSnapshot, doc,
   updateDoc, arrayUnion, serverTimestamp,
+  query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-export const STATUS = {
-  open: { label: 'Open', color: 'var(--blue)', bg: 'var(--blueBg)', bd: 'var(--blueBd)' },
-  in_progress: { label: 'In Progress', color: 'var(--orange)', bg: 'var(--orangeBg)', bd: 'var(--orangeBd)' },
-  resolved: { label: 'Resolved', color: 'var(--green)', bg: 'var(--greenBg)', bd: 'var(--greenBd)' },
-  rejected: { label: 'Rejected', color: 'var(--red)', bg: 'var(--redBg)', bd: 'var(--redBd)' },
-};
-export const PRIORITY = {
-  urgent: { label: 'Urgent', color: 'var(--red)', bg: 'var(--redBg)', bd: 'var(--redBd)' },
-  high: { label: 'High', color: 'var(--orange)', bg: 'var(--orangeBg)', bd: 'var(--orangeBd)' },
-  normal: { label: 'Normal', color: 'var(--green)', bg: 'var(--greenBg)', bd: 'var(--greenBd)' },
-};
-export const DEPTS = [
-  'Road Department', 'Electric Department', 'Sanitation Department',
-  'Water Supply', 'Traffic Control', 'Tree Authority', 'General Administration',
-];
-export const STEPS = [
-  { key: 'Reported', label: 'Reported' },
-  { key: 'Assigned', label: 'Assigned' },
-  { key: 'In Progress', label: 'In Progress' },
-  { key: 'Resolved', label: 'Resolved' },
-];
+import { STATUS, PRIORITY, DEPTS, STEPS } from '../constants';
+export { STATUS, PRIORITY, DEPTS, STEPS };
 
 // ─── Tiny SVG icon ─────────────────────────────────────────────────────────────
 export const Ic = memo(({ d, size = 14, sw = 1.8 }) => (
@@ -88,21 +69,32 @@ export const PBadge = memo(({ priority }) => {
 import ViewComplaint from '../components/ViewComplaint';
 
 // ─── Complaints page ───────────────────────────────────────────────────────────
-export default function Complaints() {
+export default function Complaints({ user }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sel, setSel] = useState(null);
-  const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
+  const [selectedId, setSelectedId] = useState(null);
+
+  const isHOD = user.role === 'hod';
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'issues'), snap => {
+    const baseRef = collection(db, 'issues');
+    const q = (isHOD && user.department)
+      ? query(baseRef, where('assignedTo', '==', user.department))
+      : baseRef;
+
+    const unsub = onSnapshot(q, snap => {
       setIssues(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
-    }, () => setLoading(false));
+    }, (err) => {
+      console.warn("Complaints Fetch Error:", err);
+      setIssues([]);
+      setLoading(false);
+    });
     return unsub;
-  }, []);
+  }, [isHOD, user.department]);
 
   const fmtDate = useCallback(ts => {
     if (!ts) return '—';
@@ -124,12 +116,16 @@ export default function Complaints() {
       || (i.userName || '').toLowerCase().includes(q)
       || (i.category || '').toLowerCase().includes(q)
       || String(i.wardNo || '').includes(q);
-    return ms && (filter === 'all' || i.status === filter);
+    const mf =
+      filter === 'all' ? true :
+        filter === 'open' ? (i.status === 'open' || i.status === 'assigned') :
+          i.status === filter;
+    return ms && mf;
   });
 
   const counts = {
     all: issues.length,
-    open: issues.filter(i => i.status === 'open').length,
+    open: issues.filter(i => i.status === 'open' || i.status === 'assigned').length,
     in_progress: issues.filter(i => i.status === 'in_progress').length,
     resolved: issues.filter(i => i.status === 'resolved').length,
     rejected: issues.filter(i => i.status === 'rejected').length,
@@ -143,11 +139,13 @@ export default function Complaints() {
     { id: 'rejected', label: 'Rejected' },
   ];
 
-  const handleOpen = useCallback(issue => setSel(issue), []);
-  const handleClose = useCallback(() => setSel(null), []);
+  const handleOpen = useCallback(issue => setSelectedId(issue.id), []);
+  const handleClose = useCallback(() => setSelectedId(null), []);
 
-  if (sel) {
-    return <ViewComplaint issue={sel} onClose={handleClose} />;
+  const liveIssue = issues.find(i => i.id === selectedId);
+
+  if (liveIssue) {
+    return <ViewComplaint issue={liveIssue} user={user} onClose={handleClose} />;
   }
 
   return (
@@ -162,9 +160,9 @@ export default function Complaints() {
           <h1 style={{
             fontFamily: 'Syne', fontSize: 28, fontWeight: 800,
             color: 'var(--text)', margin: 0, letterSpacing: -0.5
-          }}>Complaints</h1>
+          }}>{isHOD ? `${user.department} Complaints` : 'Complaints'}</h1>
           <p style={{ color: 'var(--text2)', fontSize: 14, marginTop: 5 }}>
-            Real-time · {issues.length} total
+            {isHOD ? 'Department Queue' : 'Real-time'} · {issues.length} total
           </p>
         </div>
         {counts.open > 0 ? (

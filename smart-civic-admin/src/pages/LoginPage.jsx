@@ -3,6 +3,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 
 export default function LoginPage({ debugMsg }) {
+  const [loginMode, setLoginMode] = useState('admin'); // 'admin' or 'hod'
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [err, setErr] = useState('');
@@ -111,28 +112,60 @@ export default function LoginPage({ debugMsg }) {
           </div>
         </div>
 
+        {/* ── Mode Switcher ── */}
+        <div style={{
+          ...transition(50),
+          display: 'flex', background: 'var(--surface2)', borderRadius: 12, padding: 4, marginBottom: 32, gap: 4,
+          border: '1px solid var(--border)'
+        }}>
+          <button 
+            type="button"
+            onClick={() => setLoginMode('admin')}
+            style={{
+              flex: 1, padding: '10px', borderRadius: 9, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, transition: 'all .25s',
+              background: loginMode === 'admin' ? 'var(--surface)' : 'transparent',
+              color: loginMode === 'admin' ? 'var(--accent)' : 'var(--text2)',
+              boxShadow: loginMode === 'admin' ? 'var(--shMd)' : 'none',
+              outline: 'none',
+            }}>Main Admin</button>
+          <button 
+            type="button"
+            onClick={() => setLoginMode('hod')}
+            style={{
+              flex: 1, padding: '10px', borderRadius: 9, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, transition: 'all .25s',
+              background: loginMode === 'hod' ? 'var(--surface)' : 'transparent',
+              color: loginMode === 'hod' ? 'var(--accent)' : 'var(--text2)',
+              boxShadow: loginMode === 'hod' ? 'var(--shMd)' : 'none',
+              outline: 'none',
+            }}>Department HOD</button>
+        </div>
+
         {/* ── Heading ── */}
-        <div style={transition(80)}>
+        <div key={loginMode} style={{ ...transition(100), animation: 'fadeUp .4s cubic-bezier(.16,1,.3,1) both' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
             background: 'var(--accentBg)', border: '1px solid var(--accentBd)',
             borderRadius: 99, padding: '5px 13px',
             fontSize: 11, fontWeight: 700, color: 'var(--accent)',
-            marginBottom: 22, letterSpacing: 0.3,
+            marginBottom: 20, letterSpacing: 0.3, textTransform: 'uppercase'
           }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'pulse 1.8s ease infinite' }} />
-            AUTHORIZED PERSONNEL ONLY
+            {loginMode === 'admin' ? 'Super User' : 'Departmental Head'}
           </div>
 
           <h1 style={{
-            fontFamily: 'Syne', fontSize: 34, fontWeight: 800,
-            color: 'var(--text)', lineHeight: 1.15, margin: '0 0 12px',
+            fontFamily: 'Syne', fontSize: 30, fontWeight: 800,
+            color: 'var(--text)', lineHeight: 1.15, margin: '0 0 10px',
             letterSpacing: -0.5,
           }}>
-            Welcome back
+            {loginMode === 'admin' ? 'Admin Login' : 'HOD Login'}
           </h1>
-          <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7, margin: '0 0 36px' }}>
-            Sign in to manage civic complaints and operations across all 24 wards of Mumbai.
+          <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7, margin: '0 0 30px' }}>
+            {loginMode === 'admin' 
+              ? 'Complete city-wide access for senior administrators.' 
+              : 'Sign in to manage your department-specific workspace.'}
           </p>
         </div>
 
