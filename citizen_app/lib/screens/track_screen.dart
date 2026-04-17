@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../services/theme_service.dart';
+import '../services/language_service.dart';
 
 class TrackScreen extends StatefulWidget {
   const TrackScreen({super.key});
@@ -31,9 +32,10 @@ class _TrackScreenState extends State<TrackScreen> {
           .get();
 
       if (snap.docs.isEmpty) {
+        final ls = context.read<LanguageService>();
         setState(() {
           _isLoading = false;
-          _error = "No issue found with Track ID: $id\nPlease check and try again.";
+          _error = "${ls.translate('error_no_issue')} $id\n${ls.translate('retry')}";
         });
       } else {
         setState(() {
@@ -42,9 +44,10 @@ class _TrackScreenState extends State<TrackScreen> {
         });
       }
     } catch (e) {
+      final ls = context.read<LanguageService>();
       setState(() {
         _isLoading = false;
-        _error = "Something went wrong. Please try again.";
+        _error = ls.translate('error_try_again');
       });
       print("Track error: $e");
     }
@@ -67,11 +70,11 @@ class _TrackScreenState extends State<TrackScreen> {
     }
   }
 
-  String _statusLabel(String s) {
+  String _statusLabel(String s, LanguageService ls) {
     switch (s) {
-      case 'resolved':    return 'Resolved';
-      case 'in_progress': return 'In Progress';
-      default:            return 'Open';
+      case 'resolved':    return ls.translate('resolved').toUpperCase();
+      case 'in_progress': return ls.translate('in_progress').toUpperCase();
+      default:            return ls.translate('open').toUpperCase();
     }
   }
 
@@ -94,11 +97,14 @@ class _TrackScreenState extends State<TrackScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ls = context.watch<LanguageService>();
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor:Theme.of(context).colorScheme.background,
+      backgroundColor: cs.background,
       appBar: AppBar(
-        title: const Text("Track Complaint"),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        title: Text(ls.translate('track_complaint')),
+        backgroundColor: cs.primary,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -128,17 +134,10 @@ class _TrackScreenState extends State<TrackScreen> {
                     color: Colors.white, size: 36),
               ),
               const SizedBox(width: 18),
-              const Expanded(child: Column(
+              Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Track Complaint",
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                  SizedBox(height: 4),
-                  Text("Monitor the status of your reported civic issues in real-time.",
-                      style: TextStyle(
-                          color: Colors.white70, fontSize: 13, height: 1.4, fontWeight: FontWeight.w500)),
+                   _TrackHeaderTexts(ls),
                 ],
               )),
             ]),
@@ -146,9 +145,9 @@ class _TrackScreenState extends State<TrackScreen> {
           const SizedBox(height: 32),
 
           // ── Search ───────────────────────────────────────────────
-          Text("Track ID",
+          Text(ls.translate('track_id'),
               style: TextStyle(fontWeight: FontWeight.w700,
-                  fontSize: 14, color: Theme.of(context).colorScheme.onBackground)),
+                  fontSize: 14, color: cs.onBackground)),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
@@ -166,9 +165,9 @@ class _TrackScreenState extends State<TrackScreen> {
                   onSubmitted: (_) => _track(),
                   style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
                   decoration: InputDecoration(
-                    hintText: "e.g. BMC20250319143022",
+                    hintText: ls.translate('track_id_hint'),
                     hintStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.outline, fontSize: 13),
+                        color: cs.outline, fontSize: 13),
                     prefixIcon: Icon(Icons.tag,
                         color: Theme.of(context).colorScheme.primary),
                     border: OutlineInputBorder(
@@ -232,8 +231,8 @@ class _TrackScreenState extends State<TrackScreen> {
 
           // ── Result ───────────────────────────────────────────────
           if (_issue != null) ...[
-            const Text("Complaint Details",
-                style: TextStyle(fontWeight: FontWeight.w700,
+            Text(ls.translate('complaint_details'),
+                style: const TextStyle(fontWeight: FontWeight.w700,
                     fontSize: 15, color: Color(0xFF1A1A2E))),
             const SizedBox(height: 12),
 
@@ -284,7 +283,7 @@ class _TrackScreenState extends State<TrackScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          _statusLabel(_issue!['status'] ?? 'open'),
+                          _statusLabel(_issue!['status'] ?? 'open', ls),
                           style: TextStyle(
                               color: _statusColor(
                                   _issue!['status'] ?? 'open'),
@@ -312,13 +311,13 @@ class _TrackScreenState extends State<TrackScreen> {
 
                     const Divider(height: 20),
 
-                    _infoRow(Icons.tag, "Track ID",
+                    _infoRow(Icons.tag, ls.translate('track_id'),
                         _issue!['trackId'] ?? '-'),
-                    _infoRow(Icons.location_city_outlined, "Ward",
-                        "Ward ${_issue!['wardNo'] ?? '-'}"),
-                    _infoRow(Icons.person_outline, "Reported By",
+                    _infoRow(Icons.location_city_outlined, ls.translate('ward'),
+                        "${ls.translate('ward')} ${_issue!['wardNo'] ?? '-'}"),
+                    _infoRow(Icons.person_outline, ls.translate('reported_by'),
                         _issue!['userName'] ?? '-'),
-                    _infoRow(Icons.calendar_today_outlined, "Filed On",
+                    _infoRow(Icons.calendar_today_outlined, ls.translate('filed_on'),
                         _formatDate(_issue!['createdAt'])),
                     if (_issue!['latitude'] != null)
                       _infoRow(Icons.location_on_outlined, "GPS",
@@ -328,27 +327,27 @@ class _TrackScreenState extends State<TrackScreen> {
                     const Divider(height: 20),
 
                     // Timeline
-                    Text("Status Timeline",
+                    Text(ls.translate('status_timeline'),
                         style: TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 14,
-                            color: Theme.of(context).colorScheme.onSurface)),
+                            color: cs.onSurface)),
                     const SizedBox(height: 14),
                     _timelineStep(
-                        Icons.send_rounded, "Submitted",
+                        Icons.send_rounded, ls.translate('submitted'),
                         _formatDate(_issue!['createdAt']),
                         Colors.blue, true, false),
                     _timelineStep(
-                        Icons.timelapse_rounded, "In Progress",
-                        "BMC team assigned",
+                        Icons.timelapse_rounded, ls.translate('in_progress'),
+                        ls.translate('cat_other'),
                         Colors.orange,
                         _issue!['status'] == 'in_progress' ||
                             _issue!['status'] == 'resolved',
                         false),
                     _timelineStep(
-                        Icons.check_circle_rounded, "Resolved",
+                        Icons.check_circle_rounded, ls.translate('resolved'),
                         _issue!['status'] == 'resolved'
                             ? _formatDate(_issue!['updatedAt'])
-                            : "Pending resolution",
+                            : ls.translate('open'),
                         Colors.green,
                         _issue!['status'] == 'resolved',
                         true),
@@ -367,11 +366,11 @@ class _TrackScreenState extends State<TrackScreen> {
                   Icon(Icons.search_rounded,
                       size: 72, color: Colors.grey.shade300),
                   const SizedBox(height: 12),
-                  Text("Enter your Track ID above",
+                  Text(ls.translate('tap_to_report'),
                       style: TextStyle(
                           color: Colors.grey.shade500, fontSize: 15)),
                   const SizedBox(height: 6),
-                  Text("e.g. BMC20250319143022",
+                  Text(ls.translate('track_id_hint'),
                       style: TextStyle(
                           color: Colors.grey.shade400, fontSize: 12,
                           fontFamily: 'monospace')),
@@ -382,6 +381,32 @@ class _TrackScreenState extends State<TrackScreen> {
           const SizedBox(height: 40),
         ]),
       ),
+    );
+  }
+
+  Widget _TrackHeaderTexts(LanguageService ls) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          ls.translate('track_complaint'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          ls.translate('track_id_hint'),
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
