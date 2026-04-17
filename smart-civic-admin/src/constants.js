@@ -25,3 +25,10 @@ export const STEPS = [
   { key: 'Resolved', label: 'Complaint Resolved' },
   { key: 'Rejected', label: 'Request Rejected' },
 ];
+export const ESCALATION_HOURS = 48; // Hours before a complaint is considered 'stale'
+
+export const CAT_COLORS = [
+  'var(--accent)', 'var(--blue)', 'var(--green)',
+  'var(--purple)', 'var(--teal)', 'var(--yellow)',
+  'var(--red)', 'var(--pink)',
+];

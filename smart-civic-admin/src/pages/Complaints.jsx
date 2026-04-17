@@ -6,67 +6,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
-import { STATUS, PRIORITY, DEPTS, STEPS } from '../constants';
-export { STATUS, PRIORITY, DEPTS, STEPS };
-
-// ─── Tiny SVG icon ─────────────────────────────────────────────────────────────
-export const Ic = memo(({ d, size = 14, sw = 1.8 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth={sw} strokeLinecap="round"
-    strokeLinejoin="round" style={{ display: 'block', flexShrink: 0 }}>
-    {[].concat(d).map((p, i) => <path key={i} d={p} />)}
-  </svg>
-));
-
-export const ICONS = {
-  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm10 2-4.35-4.35',
-  close: 'M18 6 6 18M6 6l12 12',
-  sort: ['M3 6h18', 'M7 12h10', 'M11 18h2'],
-  view: ['M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6'],
-  check: 'M20 6 9 17l-5-5',
-  tag: ['M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z', 'M7 7h.01'],
-  file: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6'],
-  loc: ['M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z', 'M12 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6'],
-  user: ['M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2', 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8'],
-  cal: ['M8 2v4', 'M16 2v4', 'M3 8h18', 'M4 4h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'],
-  note: ['M12 20h9', 'M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z'],
-  map: ['M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4', 'M8 2v16', 'M16 6v16'],
-  img: ['M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z', 'M12 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8'],
-  assign: ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8', 'M20 8v6', 'M23 11h-6'],
-  chevR: 'M9 18l6-6-6-6',
-  info: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 8v4', 'M12 16h.01'],
-  flag: ['M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z', 'M4 22v-7'],
-};
-
-// ─── Badges ────────────────────────────────────────────────────────────────────
-export const SBadge = memo(({ status }) => {
-  const s = STATUS[status] || Object.values(STATUS)[0];
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700,
-      color: s.color, background: s.bg, border: `1px solid ${s.bd}`,
-      whiteSpace: 'nowrap',
-    }}>
-      <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-      {s.label}
-    </span>
-  );
-});
-
-export const PBadge = memo(({ priority }) => {
-  if (!priority) return <span style={{ color: 'var(--text3)', fontSize: 11 }}>—</span>;
-  const p = PRIORITY[priority] || Object.values(PRIORITY)[2];
-  return (
-    <span style={{
-      padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700,
-      color: p.color, background: p.bg, border: `1px solid ${p.bd}`,
-      textTransform: 'capitalize',
-    }}>{p.label}</span>
-  );
-});
-
+import { STATUS, PRIORITY, DEPTS, STEPS, ESCALATION_HOURS } from '../constants';
+import { Ic, ICONS, SBadge, PBadge } from '../components/SharedUI';
 import ViewComplaint from '../components/ViewComplaint';
+
+export { STATUS, PRIORITY, DEPTS, STEPS };
 
 // ─── Complaints page ───────────────────────────────────────────────────────────
 export default function Complaints({ user }) {
@@ -120,6 +64,14 @@ export default function Complaints({ user }) {
       filter === 'all' ? true :
         filter === 'open' ? (i.status === 'open' || i.status === 'assigned') :
           i.status === filter;
+    
+    // Escalation filter
+    const isEscalated = (['open', 'assigned'].includes(i.status)) && (
+      ((new Date() - (i.createdAt?.toDate ? i.createdAt.toDate() : new Date(i.createdAt))) / 3600000) > ESCALATION_HOURS
+    );
+
+    if (filter === 'escalated') return isEscalated && ms;
+
     return ms && mf;
   });
 
@@ -129,11 +81,17 @@ export default function Complaints({ user }) {
     in_progress: issues.filter(i => i.status === 'in_progress').length,
     resolved: issues.filter(i => i.status === 'resolved').length,
     rejected: issues.filter(i => i.status === 'rejected').length,
+    escalated: issues.filter(i => {
+      if (!['open', 'assigned'].includes(i.status)) return false;
+      const created = i.createdAt?.toDate ? i.createdAt.toDate() : new Date(i.createdAt);
+      return ((new Date() - created) / 3600000) > ESCALATION_HOURS;
+    }).length,
   };
 
   const FILTERS = [
     { id: 'all', label: 'All' },
     { id: 'open', label: 'Open' },
+    { id: 'escalated', label: 'Escalated' },
     { id: 'in_progress', label: 'In Progress' },
     { id: 'resolved', label: 'Resolved' },
     { id: 'rejected', label: 'Rejected' },
@@ -204,14 +162,14 @@ export default function Complaints({ user }) {
               padding: '6px 13px', borderRadius: 9, border: 'none',
               cursor: 'pointer', fontSize: 12, fontWeight: 600,
               background: filter === f.id ? 'var(--surface)' : 'transparent',
-              color: filter === f.id ? 'var(--accent)' : 'var(--text2)',
+              color: filter === f.id ? (f.id === 'escalated' ? 'var(--red)' : 'var(--accent)') : 'var(--text2)',
               boxShadow: filter === f.id ? 'var(--sh)' : 'none',
               transition: 'all .15s', outline: 'none',
             }}>
               {f.label}
               <span style={{
                 marginLeft: 5, fontSize: 10, fontWeight: 800,
-                color: filter === f.id ? 'var(--accent)' : 'var(--text3)',
+                color: filter === f.id ? (f.id === 'escalated' ? 'var(--red)' : 'var(--accent)') : 'var(--text3)',
               }}>({counts[f.id]})</span>
             </button>
           ))}
@@ -324,6 +282,7 @@ export default function Complaints({ user }) {
                 gridTemplateColumns: '2.4fr 1fr 0.65fr 1fr 0.75fr 0.65fr 72px',
                 padding: '12px 20px', alignItems: 'center',
                 borderBottom: idx < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+                borderLeft: (['open', 'assigned'].includes(issue.status) && ((new Date() - (issue.createdAt?.toDate ? issue.createdAt.toDate() : new Date(i.createdAt))) / 3600000) > ESCALATION_HOURS) ? '3px solid var(--red)' : '3px solid transparent',
                 cursor: 'pointer', transition: 'background .1s',
               }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
