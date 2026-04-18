@@ -1,7 +1,11 @@
-node_modules/
-.env
-dist/
+.venv312/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.log
+*.pid
+.pytest_cache/
+.tmp/
+tmp*/
 .vscode/
-android/
-ios/
-build/

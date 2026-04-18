@@ -1,0 +1,10 @@
+{
+  "labelMap": {
+    "pothole": "roads_department_id",
+    "garbage_dump": "sanitation_department_id",
+    "broken_streetlight": "electrical_department_id",
+    "overflowing_bin": "sanitation_department_id",
+    "drainage_issue": "stormwater_department_id"
+  },
+  "reviewQueueDepartmentId": "review_queue_department_id"
+}
