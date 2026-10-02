@@ -478,6 +478,8 @@ export default function AdminLayout({ user }) {
           boxShadow: 'var(--sh)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
+          position: 'relative',
+          zIndex: 100,
         }}>
 
           {/* Page title */}
@@ -581,7 +583,7 @@ export default function AdminLayout({ user }) {
           </button>
 
           {/* Notification bell container with dropdown */}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', zIndex: 110 }}>
             <button
               onClick={() => setNotifOpen(prev => !prev)}
               title="Notifications"
@@ -631,15 +633,13 @@ export default function AdminLayout({ user }) {
                 ref={notifRef}
                 style={{
                   position: 'absolute', top: 48, right: 0,
-                  width: 380, maxHeight: 520,
-                  background: 'var(--surface)',
-                  border: '1.5px solid var(--border)',
+                  width: 390, maxHeight: 530,
+                  background: 'var(--popoverBg)',
+                  border: '1.5px solid var(--border2)',
                   borderRadius: 20,
-                  boxShadow: 'var(--shModal)',
-                  backdropFilter: 'blur(24px)',
-                  WebkitBackdropFilter: 'blur(24px)',
+                  boxShadow: '0 30px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border)',
                   display: 'flex', flexDirection: 'column',
-                  zIndex: 1000,
+                  zIndex: 99999,
                   animation: 'scaleIn .2s cubic-bezier(.16,1,.3,1) both',
                   overflow: 'hidden',
                 }}
@@ -649,7 +649,7 @@ export default function AdminLayout({ user }) {
                   padding: '14px 18px',
                   borderBottom: '1px solid var(--border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  background: 'var(--surface2)',
+                  background: 'var(--popoverHeader)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{
@@ -665,7 +665,7 @@ export default function AdminLayout({ user }) {
                         fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700,
                         color: 'var(--text)', margin: 0, lineHeight: 1.2,
                       }}>Notifications</h4>
-                      <p style={{ fontSize: 10, color: 'var(--text3)', margin: 0, fontWeight: 500 }}>
+                      <p style={{ fontSize: 10.5, color: 'var(--text3)', margin: '2px 0 0', fontWeight: 600 }}>
                         {unreadCount > 0 ? `${unreadCount} unread complaint${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
                       </p>
                     </div>
@@ -675,13 +675,14 @@ export default function AdminLayout({ user }) {
                     <button
                       onClick={markAllAsRead}
                       style={{
-                        background: 'transparent', border: 'none',
+                        background: 'var(--accentBg)', border: '1px solid var(--accentBd)',
                         color: 'var(--accent)', fontSize: 11, fontWeight: 700,
-                        cursor: 'pointer', padding: '4px 8px', borderRadius: 6,
+                        cursor: 'pointer', padding: '5px 10px', borderRadius: 8,
                         display: 'flex', alignItems: 'center', gap: 4,
+                        transition: 'all .15s',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--accentBg)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                     >
                       <NavIcon id="check" size={12} />
                       Mark all read
@@ -693,16 +694,16 @@ export default function AdminLayout({ user }) {
                 <div style={{
                   display: 'flex', padding: '8px 12px', gap: 6,
                   borderBottom: '1px solid var(--border)',
-                  background: 'var(--surface)',
+                  background: 'var(--popoverBg)',
                 }}>
                   <button
                     onClick={() => setNotifTab('all')}
                     style={{
-                      flex: 1, padding: '6px 10px', borderRadius: 8,
-                      border: 'none', cursor: 'pointer',
-                      fontSize: 11, fontWeight: 700,
-                      background: notifTab === 'all' ? 'var(--surface2)' : 'transparent',
-                      color: notifTab === 'all' ? 'var(--text)' : 'var(--text3)',
+                      flex: 1, padding: '7px 10px', borderRadius: 8,
+                      border: notifTab === 'all' ? '1px solid var(--accentBd)' : '1px solid transparent',
+                      cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+                      background: notifTab === 'all' ? 'var(--accentBg)' : 'var(--surface2)',
+                      color: notifTab === 'all' ? 'var(--accent)' : 'var(--text2)',
                       transition: 'all .15s',
                     }}
                   >
@@ -711,11 +712,11 @@ export default function AdminLayout({ user }) {
                   <button
                     onClick={() => setNotifTab('unread')}
                     style={{
-                      flex: 1, padding: '6px 10px', borderRadius: 8,
-                      border: 'none', cursor: 'pointer',
-                      fontSize: 11, fontWeight: 700,
-                      background: notifTab === 'unread' ? 'var(--surface2)' : 'transparent',
-                      color: notifTab === 'unread' ? 'var(--accent)' : 'var(--text3)',
+                      flex: 1, padding: '7px 10px', borderRadius: 8,
+                      border: notifTab === 'unread' ? '1px solid var(--accentBd)' : '1px solid transparent',
+                      cursor: 'pointer', fontSize: 11.5, fontWeight: 700,
+                      background: notifTab === 'unread' ? 'var(--accentBg)' : 'var(--surface2)',
+                      color: notifTab === 'unread' ? 'var(--accent)' : 'var(--text2)',
                       transition: 'all .15s',
                     }}
                   >
@@ -724,14 +725,17 @@ export default function AdminLayout({ user }) {
                 </div>
 
                 {/* Notifications List */}
-                <div style={{ flex: 1, overflowY: 'auto', maxHeight: 340, padding: '8px' }}>
+                <div style={{
+                  flex: 1, overflowY: 'auto', maxHeight: 350, padding: '10px 12px',
+                  background: 'var(--popoverBg)',
+                }}>
                   {displayedNotifications.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)' }}>
                       <div style={{
                         width: 44, height: 44, borderRadius: '50%',
                         background: 'var(--surface2)', margin: '0 auto 10px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'var(--text3)',
+                        color: 'var(--text3)', border: '1px solid var(--border)',
                       }}>
                         <NavIcon id="sparkle" size={20} />
                       </div>
@@ -756,34 +760,40 @@ export default function AdminLayout({ user }) {
                           key={item.id}
                           onClick={() => handleNotificationClick(item.id)}
                           style={{
-                            padding: '11px 12px',
-                            borderRadius: 12,
-                            background: isUnread ? 'var(--surface2)' : 'transparent',
-                            border: isUnread ? '1px solid var(--border)' : '1px solid transparent',
-                            marginBottom: 4,
+                            padding: '12px 14px',
+                            borderRadius: 14,
+                            background: isUnread ? 'var(--surface2)' : 'var(--surfaceCard)',
+                            border: `1.5px solid ${isUnread ? 'var(--border2)' : 'var(--border)'}`,
+                            marginBottom: 8,
                             cursor: 'pointer',
-                            display: 'flex', alignItems: 'flex-start', gap: 10,
+                            display: 'flex', alignItems: 'flex-start', gap: 12,
                             transition: 'all .15s',
-                            position: 'relative',
+                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
                           }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surfaceHover)'}
-                          onMouseLeave={e => e.currentTarget.style.background = isUnread ? 'var(--surface2)' : 'transparent'}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = 'var(--surfaceHover)';
+                            e.currentTarget.style.borderColor = 'var(--accentBd)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = isUnread ? 'var(--surface2)' : 'var(--surfaceCard)';
+                            e.currentTarget.style.borderColor = isUnread ? 'var(--border2)' : 'var(--border)';
+                          }}
                         >
                           {/* Priority dot / Icon */}
                           <div style={{
-                            width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                            background: bg, border: `1px solid ${bd}`,
+                            width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                            background: bg, border: `1.5px solid ${bd}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             color: color, marginTop: 2,
                           }}>
-                            <NavIcon id={isUrgent ? 'alert' : 'complaints'} size={14} />
+                            <NavIcon id={isUrgent ? 'alert' : 'complaints'} size={15} />
                           </div>
 
                           {/* Details */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                               <p style={{
-                                fontSize: 12.5, fontWeight: isUnread ? 700 : 500,
+                                fontSize: 13, fontWeight: isUnread ? 700 : 600,
                                 color: 'var(--text)', margin: 0,
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                               }}>
@@ -791,28 +801,32 @@ export default function AdminLayout({ user }) {
                               </p>
                               {isUnread && (
                                 <div style={{
-                                  width: 7, height: 7, borderRadius: '50%',
+                                  width: 8, height: 8, borderRadius: '50%',
                                   background: 'var(--accent)', flexShrink: 0,
+                                  boxShadow: '0 0 6px var(--accent)',
                                 }} />
                               )}
                             </div>
 
                             <div style={{
                               display: 'flex', alignItems: 'center', gap: 6,
-                              marginTop: 4, flexWrap: 'wrap',
+                              marginTop: 6, flexWrap: 'wrap',
                             }}>
                               <span style={{
                                 fontSize: 10, fontWeight: 700,
-                                padding: '1px 6px', borderRadius: 4,
-                                background: 'var(--surface)', border: '1px solid var(--border)',
-                                color: 'var(--text2)',
+                                padding: '2px 7px', borderRadius: 6,
+                                background: 'var(--surface2)', border: '1px solid var(--border)',
+                                color: 'var(--text)',
                               }}>
                                 Ward {item.wardNo || 'N/A'}
                               </span>
-                              <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                              <span style={{
+                                fontSize: 11, fontWeight: 500, color: 'var(--text2)',
+                                maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}>
                                 {item.category || item.assignedTo || 'General'}
                               </span>
-                              <span style={{ fontSize: 10, color: 'var(--textMuted)', marginLeft: 'auto' }}>
+                              <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text3)', marginLeft: 'auto' }}>
                                 {formatTimeAgo(item.createdAt)}
                               </span>
                             </div>
@@ -825,9 +839,9 @@ export default function AdminLayout({ user }) {
 
                 {/* Panel Footer */}
                 <div style={{
-                  padding: '10px 14px',
+                  padding: '12px 16px',
                   borderTop: '1px solid var(--border)',
-                  background: 'var(--surface2)',
+                  background: 'var(--popoverHeader)',
                   textAlign: 'center',
                 }}>
                   <button
@@ -836,8 +850,8 @@ export default function AdminLayout({ user }) {
                       setNotifOpen(false);
                     }}
                     style={{
-                      width: '100%', padding: '8px',
-                      background: 'var(--surface)', border: '1px solid var(--border)',
+                      width: '100%', padding: '9px',
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
                       borderRadius: 10, color: 'var(--accent)',
                       fontSize: 12, fontWeight: 700, cursor: 'pointer',
                       transition: 'all .15s',
@@ -847,7 +861,7 @@ export default function AdminLayout({ user }) {
                       e.currentTarget.style.borderColor = 'var(--accentBd)';
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.background = 'var(--surface)';
+                      e.currentTarget.style.background = 'var(--surface2)';
                       e.currentTarget.style.borderColor = 'var(--border)';
                     }}
                   >
@@ -863,11 +877,11 @@ export default function AdminLayout({ user }) {
         {activeToast && (
           <div
             style={{
-              position: 'fixed', top: 68, right: 24, zIndex: 9999,
-              width: 360, background: 'var(--surface)',
+              position: 'fixed', top: 68, right: 24, zIndex: 999999,
+              width: 360, background: 'var(--popoverBg)',
               border: '1.5px solid var(--accentBd)', borderRadius: 16,
-              padding: '14px 16px', boxShadow: 'var(--shModal)',
-              backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+              padding: '14px 16px',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.55)',
               display: 'flex', alignItems: 'flex-start', gap: 12,
               animation: 'slideInRight .35s cubic-bezier(.16,1,.3,1) both',
             }}
@@ -898,7 +912,7 @@ export default function AdminLayout({ user }) {
               }}>
                 {activeToast.title}
               </p>
-              <p style={{ fontSize: 11, color: 'var(--text3)', margin: '2px 0 8px' }}>
+              <p style={{ fontSize: 11, color: 'var(--text2)', margin: '2px 0 8px' }}>
                 Ward {activeToast.wardNo || 'N/A'} · {activeToast.department || activeToast.category || 'General'}
               </p>
               <button
@@ -907,11 +921,12 @@ export default function AdminLayout({ user }) {
                   setActiveToast(null);
                 }}
                 style={{
-                  padding: '5px 12px', borderRadius: 8,
+                  padding: '6px 14px', borderRadius: 8,
                   background: 'var(--accent)', border: 'none',
-                  color: '#fff', fontSize: 11, fontWeight: 700,
+                  color: '#fff', fontSize: 11.5, fontWeight: 700,
                   cursor: 'pointer', outline: 'none',
                   display: 'inline-flex', alignItems: 'center', gap: 5,
+                  boxShadow: '0 2px 8px rgba(240, 100, 30, 0.4)',
                 }}
               >
                 View Complaint →
@@ -925,6 +940,8 @@ export default function AdminLayout({ user }) {
           flex: 1, overflowY: 'auto', overflowX: 'hidden',
           padding: 24,
           background: 'transparent',
+          position: 'relative',
+          zIndex: 1,
         }}>
           <div key={page} style={{
             animation: 'fadeUp .38s cubic-bezier(.16,1,.3,1) both',
