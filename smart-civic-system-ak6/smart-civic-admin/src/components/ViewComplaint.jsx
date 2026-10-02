@@ -293,7 +293,7 @@ const ActBtn = memo(({ label, color, bg, bd, active, disabled, onClick }) => (
       transition: 'all .2s cubic-bezier(.4,0,.2,1)',
       outline: 'none', textAlign: 'left',
       display: 'flex', alignItems: 'center', gap: 8,
-      boxShadow: active ? `0 4px 12px ${bg}44` : 'none',
+      boxShadow: active ? '0 4px 12px var(--accentGl)' : 'none',
       flexShrink: 0,
     }}
     onMouseEnter={e => {
@@ -302,7 +302,7 @@ const ActBtn = memo(({ label, color, bg, bd, active, disabled, onClick }) => (
         e.currentTarget.style.color = color;
         e.currentTarget.style.background = bg;
         e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.boxShadow = `0 4px 12px ${bg}44`;
+        e.currentTarget.style.boxShadow = '0 4px 12px var(--accentGl)';
       }
     }}
     onMouseLeave={e => {
@@ -346,7 +346,7 @@ const PremiumBtn = memo(({ label, icon, onClick, disabled, loading, color = 'var
       opacity: (disabled && !loading) ? 0.5 : 1,
       transition: 'all .25s cubic-bezier(.16,1,.3,1)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-      boxShadow: `0 4px 14px ${bg}66`,
+      boxShadow: 'var(--sh)',
       outline: 'none', flexShrink: 0,
     }}
     onMouseEnter={e => {
@@ -654,7 +654,7 @@ export default memo(function ViewComplaint({ issue, user, onClose, onDelete }) {
         {/* Status stripe */}
         <div style={{
           height: 5, flexShrink: 0,
-          background: `linear-gradient(90deg, ${sc.color}, ${sc.color}44)`,
+          background: sc?.color ? `linear-gradient(90deg, ${sc.color} 0%, transparent 100%)` : 'var(--accent)',
         }}/>
 
         {/* Header */}

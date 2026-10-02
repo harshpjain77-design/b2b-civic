@@ -120,7 +120,7 @@ export default function AdminLayout({ user }) {
   const Sidebar = () => (
     <aside style={{
       width: W, flexShrink: 0,
-      background: 'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.72) 100%)',
+      background: 'var(--glass)',
       borderRight: '1px solid var(--border)',
       display: 'flex', flexDirection: 'column',
       transition: 'width .22s cubic-bezier(.4,0,.2,1), background-color 0.3s',
@@ -191,14 +191,14 @@ export default function AdminLayout({ user }) {
                 gap: 10, width: '100%',
                 padding: collapsed ? '11px 0' : '10px 12px',
                 justifyContent: collapsed ? 'center' : 'flex-start',
-                background: active ? 'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, var(--accentBg) 100%)' : 'transparent',
+                background: active ? 'linear-gradient(180deg, var(--surface) 0%, var(--accentBg) 100%)' : 'transparent',
                 border: active ? '1px solid var(--accentBd)' : '1px solid transparent',
                 borderRadius: 14, cursor: 'pointer',
                 color: active ? 'var(--accent)' : 'var(--text2)',
                 fontSize: 13, fontWeight: active ? 700 : 500,
                 transition: 'all .15s', marginBottom: 3,
                 position: 'relative', outline: 'none',
-                boxShadow: active ? '0 10px 24px rgba(240, 100, 30, 0.10)' : 'none',
+                boxShadow: active ? '0 10px 24px var(--accentGl)' : 'none',
               }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)'; }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
@@ -246,9 +246,9 @@ export default function AdminLayout({ user }) {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '10px 12px', borderRadius: 16,
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.62) 100%)', border: '1px solid var(--border)',
+            background: 'var(--surface2)', border: '1px solid var(--border)',
             marginBottom: 8,
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6)',
+            boxShadow: 'inset 0 1px 0 var(--borderHl)',
           }}>
             <div style={{
               width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
@@ -339,7 +339,7 @@ export default function AdminLayout({ user }) {
         {/* ── Topbar ── */}
         <header style={{
           height: 58, flexShrink: 0,
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.76) 0%, rgba(255,255,255,0.58) 100%)',
+          background: 'var(--glass)',
           borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center',
           padding: '0 24px', gap: 12,
