@@ -284,6 +284,15 @@ def list_reports() -> Dict[str, Any]:
     return {"reports": app.state.firestore.store.get("reports", {})}
 
 
+@app.delete("/reports/{report_id}")
+def delete_report(report_id: str) -> Dict[str, Any]:
+    store = app.state.firestore.store.get("reports", {})
+    if report_id in store:
+        del store[report_id]
+        return {"deleted": report_id, "status": "success"}
+    raise HTTPException(status_code=404, detail=f"Report {report_id} not found")
+
+
 @app.post("/analyze-image")
 async def analyze_image(
     image: UploadFile = File(...),

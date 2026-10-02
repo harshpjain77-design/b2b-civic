@@ -284,6 +284,43 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
         '${n.minute.toString().padLeft(2, '0')}';
   }
 
+  String _getDepartmentForCategory(String cat) {
+    switch (cat.toLowerCase().trim()) {
+      case 'cat_road':
+      case 'road damage':
+      case 'pothole':
+        return 'Road Department';
+      case 'cat_light':
+      case 'streetlight':
+      case 'broken streetlight':
+        return 'Electric Department';
+      case 'cat_garbage':
+      case 'garbage':
+      case 'garbage & waste':
+      case 'overflowing bin':
+        return 'Sanitation Department';
+      case 'cat_water':
+      case 'water supply':
+      case 'drainage issue':
+      case 'water leak':
+        return 'Water Supply';
+      case 'cat_traffic':
+      case 'traffic & signals':
+      case 'traffic control':
+        return 'Traffic Control';
+      case 'cat_tree':
+      case 'fallen trees / branches':
+      case 'tree':
+        return 'Tree Authority';
+      case 'cat_encroach':
+      case 'encroachment':
+      case 'cat_other':
+      case 'other issue':
+      default:
+        return 'General Administration';
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -306,15 +343,17 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
       final voiceUrl = await _uploadVoice();
 
       final ward = _wardCtrl.text.trim().isEmpty ? (_wardNo ?? 'Unknown') : _wardCtrl.text.trim();
+      final autoDept = _getDepartmentForCategory(_category);
 
       await docRef.set({
         'trackId':      trackId,
         'title':        _titleCtrl.text.trim(),
         'description':  _descCtrl.text.trim(),
         'category':     _category,
+        'assignedTo':   autoDept,
         'wardNo':       ward,
         'manualAddress': _addressCtrl.text.trim(),
-        'status':       'open',
+        'status':       'assigned',
         'userId':       user.uid,
         'userName':     _userName ?? '',
         'userEmail':    user.email ?? '',
@@ -322,11 +361,18 @@ class _ReportIssueScreenState extends State<ReportIssueScreen>
         'longitude':    _position?.longitude,
         'imageUrl':     imageUrl,
         'voiceUrl':     voiceUrl,
-        'timeline':     [{
-          'step': 'Reported',
-          'time': DateTime.now().toUtc().toIso8601String(),
-          'by':   'citizen',
-        }],
+        'timeline':     [
+          {
+            'step': 'Reported',
+            'time': DateTime.now().toUtc().toIso8601String(),
+            'by':   'citizen',
+          },
+          {
+            'step': 'Forwarded',
+            'time': DateTime.now().toUtc().toIso8601String(),
+            'by':   'System (Auto-Routed to $autoDept)',
+          }
+        ],
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });

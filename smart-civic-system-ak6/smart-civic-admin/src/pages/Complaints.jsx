@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import {
   collection, onSnapshot, doc,
-  updateDoc, arrayUnion, serverTimestamp,
+  updateDoc, deleteDoc, arrayUnion, serverTimestamp,
   query, where,
 } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -20,6 +20,9 @@ export default function Complaints({ user }) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [selectedId, setSelectedId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deletingId, setDeletingId] = useState(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const isHOD = user.role === 'hod';
 
@@ -100,10 +103,59 @@ export default function Complaints({ user }) {
   const handleOpen = useCallback(issue => setSelectedId(issue.id), []);
   const handleClose = useCallback(() => setSelectedId(null), []);
 
+  const handleDelete = useCallback(async (issueId, issueTitle, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete complaint "${issueTitle || issueId}"?\n\nThis cannot be undone.`)) {
+      return;
+    }
+    setDeletingId(issueId);
+    try {
+      await deleteDoc(doc(db, 'issues', issueId));
+      setSelectedIds(prev => prev.filter(id => id !== issueId));
+      if (selectedId === issueId) setSelectedId(null);
+    } catch (err) {
+      console.error("Error deleting complaint:", err);
+      alert(`Failed to delete complaint: ${err.message}`);
+    } finally {
+      setDeletingId(null);
+    }
+  }, [selectedId]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to permanently delete all ${selectedIds.length} selected complaints?\n\nThis action cannot be undone.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    try {
+      await Promise.all(selectedIds.map(id => deleteDoc(doc(db, 'issues', id))));
+      if (selectedIds.includes(selectedId)) setSelectedId(null);
+      setSelectedIds([]);
+    } catch (err) {
+      console.error("Error bulk deleting complaints:", err);
+      alert(`Failed to delete selected complaints: ${err.message}`);
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [selectedIds, selectedId]);
+
+  const toggleSelect = useCallback((id, e) => {
+    if (e) e.stopPropagation();
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
+
+  const toggleSelectAll = useCallback((e) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(i => i.id));
+    } else {
+      setSelectedIds([]);
+    }
+  }, [filtered]);
+
   const liveIssue = issues.find(i => i.id === selectedId);
 
   if (liveIssue) {
-    return <ViewComplaint issue={liveIssue} user={user} onClose={handleClose} />;
+    return <ViewComplaint issue={liveIssue} user={user} onClose={handleClose} onDelete={handleDelete} />;
   }
 
   return (
@@ -251,76 +303,170 @@ export default function Complaints({ user }) {
           </p>
         </div>
       ) : (
-        <div style={{
-          background: 'var(--surface)', borderRadius: 18,
-          border: '1.5px solid var(--border)', overflow: 'hidden',
-          boxShadow: 'var(--sh)',
-          animation: 'fadeUp .4s .1s cubic-bezier(.16,1,.3,1) both',
-        }}>
-          {/* Head */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Bulk actions banner */}
+          {selectedIds.length > 0 && !isHOD && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 16px', background: 'var(--redBg)', border: '1.5px solid var(--redBd)',
+              borderRadius: 14, animation: 'fadeUp .2s ease both',
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--red)' }}>
+                {selectedIds.length} complaint{selectedIds.length > 1 ? 's' : ''} selected
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => setSelectedIds([])}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, background: 'var(--surface)',
+                    border: '1px solid var(--border)', color: 'var(--text2)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none',
+                  }}
+                >
+                  Clear Selection
+                </button>
+                <button
+                  disabled={bulkDeleting}
+                  onClick={handleBulkDelete}
+                  style={{
+                    padding: '6px 14px', borderRadius: 8, background: 'var(--red)',
+                    border: 'none', color: '#fff', fontSize: 12, fontWeight: 700,
+                    cursor: bulkDeleting ? 'not-allowed' : 'pointer', outline: 'none',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    boxShadow: '0 2px 8px rgba(220,38,38,0.25)',
+                  }}
+                >
+                  <Ic d={ICONS.trash} size={13} />
+                  {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedIds.length})`}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: '2.4fr 1fr 0.65fr 1fr 0.75fr 0.65fr 72px',
-            padding: '10px 20px',
-            background: 'var(--surface2)',
-            borderBottom: '1.5px solid var(--border)',
-            fontSize: 9, fontWeight: 900, color: 'var(--text3)',
-            letterSpacing: 1.4, textTransform: 'uppercase',
+            background: 'var(--surface)', borderRadius: 18,
+            border: '1.5px solid var(--border)', overflow: 'hidden',
+            boxShadow: 'var(--sh)',
+            animation: 'fadeUp .4s .1s cubic-bezier(.16,1,.3,1) both',
           }}>
-            {['Complaint', 'Category', 'Ward', 'Status', 'Priority', 'Date', ''].map((h, i) => (
-              <span key={i}>{h}</span>
+            {/* Head */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: !isHOD ? '36px 2.3fr 1fr 0.65fr 1fr 0.75fr 0.65fr 108px' : '2.4fr 1fr 0.65fr 1fr 0.75fr 0.65fr 72px',
+              padding: '10px 20px',
+              background: 'var(--surface2)',
+              borderBottom: '1.5px solid var(--border)',
+              fontSize: 9, fontWeight: 900, color: 'var(--text3)',
+              letterSpacing: 1.4, textTransform: 'uppercase',
+              alignItems: 'center',
+            }}>
+              {!isHOD && (
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
+                    onChange={toggleSelectAll}
+                    style={{ cursor: 'pointer', accentColor: 'var(--accent)', width: 14, height: 14 }}
+                    title="Select all complaints"
+                  />
+                </div>
+              )}
+              {['Complaint', 'Category', 'Ward', 'Status', 'Priority', 'Date', ''].map((h, i) => (
+                <span key={i} style={i === 6 ? { textAlign: 'right' } : {}}>{h}</span>
+              ))}
+            </div>
+
+            {/* Rows — virtualise by only re-rendering changes */}
+            {filtered.map((issue, idx) => (
+              <div
+                key={issue.id}
+                onClick={() => handleOpen(issue)}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: !isHOD ? '36px 2.3fr 1fr 0.65fr 1fr 0.75fr 0.65fr 108px' : '2.4fr 1fr 0.65fr 1fr 0.75fr 0.65fr 72px',
+                  padding: '12px 20px', alignItems: 'center',
+                  borderBottom: idx < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderLeft: (['open', 'assigned'].includes(issue.status) && ((new Date() - (issue.createdAt?.toDate ? issue.createdAt.toDate() : new Date(issue.createdAt))) / 3600000) > ESCALATION_HOURS) ? '3px solid var(--red)' : '3px solid transparent',
+                  cursor: 'pointer', transition: 'background .1s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                {!isHOD && (
+                  <div style={{ display: 'flex', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(issue.id)}
+                      onChange={e => toggleSelect(issue.id, e)}
+                      style={{ cursor: 'pointer', accentColor: 'var(--accent)', width: 14, height: 14 }}
+                    />
+                  </div>
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <p style={{
+                    fontSize: 13, fontWeight: 600, color: 'var(--text)',
+                    overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap', margin: 0,
+                  }}>{issue.title || 'Untitled'}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text3)', margin: '3px 0 0' }}>
+                    #{issue.trackId || issue.id?.slice(0, 8)} · {issue.userName || '—'}
+                  </p>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>{issue.category || '—'}</span>
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>{issue.wardNo ? `W${issue.wardNo}` : '—'}</span>
+                <SBadge status={issue.status || 'open'} />
+                <PBadge priority={issue.priority} />
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDate(issue.createdAt)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); handleOpen(issue); }}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8,
+                      background: 'var(--accentBg)', border: '1.5px solid var(--accentBd)',
+                      color: 'var(--accent)', fontSize: 11, fontWeight: 700,
+                      cursor: 'pointer', outline: 'none',
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      transition: 'all .15s', whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 0.8}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 1}
+                  >
+                    <Ic d={ICONS.view} size={12} />
+                    View
+                  </button>
+                  {!isHOD && (
+                    <button
+                      disabled={deletingId === issue.id}
+                      onClick={e => handleDelete(issue.id, issue.title, e)}
+                      title="Delete Complaint"
+                      style={{
+                        padding: '5px 8px', borderRadius: 8,
+                        background: 'var(--redBg)', border: '1.5px solid var(--redBd)',
+                        color: 'var(--red)', fontSize: 11, fontWeight: 700,
+                        cursor: deletingId === issue.id ? 'not-allowed' : 'pointer', outline: 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all .15s',
+                      }}
+                      onMouseEnter={e => {
+                        if (deletingId !== issue.id) {
+                          e.currentTarget.style.background = 'var(--red)';
+                          e.currentTarget.style.color = '#fff';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (deletingId !== issue.id) {
+                          e.currentTarget.style.background = 'var(--redBg)';
+                          e.currentTarget.style.color = 'var(--red)';
+                        }
+                      }}
+                    >
+                      <Ic d={ICONS.trash} size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
-
-          {/* Rows — virtualise by only re-rendering changes */}
-          {filtered.map((issue, idx) => (
-            <div
-              key={issue.id}
-              onClick={() => handleOpen(issue)}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '2.4fr 1fr 0.65fr 1fr 0.75fr 0.65fr 72px',
-                padding: '12px 20px', alignItems: 'center',
-                borderBottom: idx < filtered.length - 1 ? '1px solid var(--border)' : 'none',
-                borderLeft: (['open', 'assigned'].includes(issue.status) && ((new Date() - (issue.createdAt?.toDate ? issue.createdAt.toDate() : new Date(i.createdAt))) / 3600000) > ESCALATION_HOURS) ? '3px solid var(--red)' : '3px solid transparent',
-                cursor: 'pointer', transition: 'background .1s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >
-              <div style={{ minWidth: 0 }}>
-                <p style={{
-                  fontSize: 13, fontWeight: 600, color: 'var(--text)',
-                  overflow: 'hidden', textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap', margin: 0,
-                }}>{issue.title || 'Untitled'}</p>
-                <p style={{ fontSize: 11, color: 'var(--text3)', margin: '3px 0 0' }}>
-                  #{issue.trackId || issue.id?.slice(0, 8)} · {issue.userName || '—'}
-                </p>
-              </div>
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>{issue.category || '—'}</span>
-              <span style={{ fontSize: 12, color: 'var(--text2)' }}>{issue.wardNo ? `W${issue.wardNo}` : '—'}</span>
-              <SBadge status={issue.status || 'open'} />
-              <PBadge priority={issue.priority} />
-              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{fmtDate(issue.createdAt)}</span>
-              <button
-                onClick={e => { e.stopPropagation(); handleOpen(issue); }}
-                style={{
-                  padding: '5px 12px', borderRadius: 8,
-                  background: 'var(--accentBg)', border: '1.5px solid var(--accentBd)',
-                  color: 'var(--accent)', fontSize: 11, fontWeight: 700,
-                  cursor: 'pointer', outline: 'none',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  transition: 'all .15s', whiteSpace: 'nowrap',
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = 0.8}
-                onMouseLeave={e => e.currentTarget.style.opacity = 1}
-              >
-                <Ic d={ICONS.view} size={12} />
-                View
-              </button>
-            </div>
-          ))}
         </div>
       )}
 

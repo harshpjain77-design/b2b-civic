@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
-import { doc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { STATUS, PRIORITY, DEPTS, STEPS, ESCALATION_HOURS } from '../constants';
+import { STATUS, PRIORITY, DEPTS, STEPS, ESCALATION_HOURS, getDepartmentForCategory } from '../constants';
 import { Ic, ICONS, SBadge, PBadge } from './SharedUI';
 
 const AI_ANALYSIS_ENDPOINT = '/ai-api/analyze-image';
@@ -385,10 +385,11 @@ const ColScroll = memo(({ children, style = {} }) => (
 ));
 
 // --- ViewComplaint ---
-export default memo(function ViewComplaint({ issue, user, onClose }) {
+export default memo(function ViewComplaint({ issue, user, onClose, onDelete }) {
   const [note,   setNote]   = useState('');
   const [dept,   setDept]   = useState(issue.assignedTo || '');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [toast,  setToast]  = useState({ msg: '', type: 'ok' });
   const [analysisState, setAnalysisState] = useState('idle');
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -404,6 +405,25 @@ export default memo(function ViewComplaint({ issue, user, onClose }) {
     timer.current = setTimeout(() => setToast({ msg: '', type: 'ok' }), 2800);
   }, []);
 
+  const handleDeleteComplaint = useCallback(async () => {
+    if (!window.confirm(`Are you sure you want to delete complaint "${issue.title || issue.id}"?\n\nThis cannot be undone.`)) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      if (onDelete) {
+        await onDelete(issue.id, issue.title);
+      } else {
+        await deleteDoc(doc(db, 'issues', issue.id));
+      }
+      onClose();
+    } catch (err) {
+      console.error("Failed to delete complaint:", err);
+      showToast('Delete failed: ' + err.message, 'error');
+      setDeleting(false);
+    }
+  }, [issue.id, issue.title, onDelete, onClose, showToast]);
+
   useEffect(() => {
     const h = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
@@ -411,8 +431,26 @@ export default memo(function ViewComplaint({ issue, user, onClose }) {
   }, [onClose]);
 
   useEffect(() => {
-    if (issue.assignedTo) setDept(issue.assignedTo);
-  }, [issue.assignedTo]);
+    if (issue.assignedTo) {
+      setDept(issue.assignedTo);
+    } else if (issue.category) {
+      const autoDept = getDepartmentForCategory(issue.category);
+      if (autoDept) {
+        setDept(autoDept);
+        // Persist auto-assignment to Firestore if not assigned yet
+        updateDoc(doc(db, 'issues', issue.id), {
+          assignedTo: autoDept,
+          status: issue.status === 'open' ? 'assigned' : issue.status,
+          timeline: arrayUnion({
+            step: 'Forwarded to Department',
+            time: new Date().toISOString(),
+            by: 'System (Auto-Router)',
+          }),
+          updatedAt: serverTimestamp(),
+        }).catch(err => console.warn("Auto-assignment on load failed:", err));
+      }
+    }
+  }, [issue.id, issue.assignedTo, issue.category, issue.status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -465,6 +503,31 @@ export default memo(function ViewComplaint({ issue, user, onClose }) {
         if (!cancelled) {
           setAnalysisResult(payload);
           setAnalysisState('done');
+
+          // Auto-assign to concerned department based on AI classification
+          const detectedLabel = payload.issueLabel || issue.category;
+          const targetDept = (payload.departmentId && DEPTS.includes(payload.departmentId))
+            ? payload.departmentId
+            : getDepartmentForCategory(detectedLabel);
+
+          if (targetDept && (!issue.assignedTo || issue.status === 'open')) {
+            try {
+              await updateDoc(doc(db, 'issues', issue.id), {
+                assignedTo: targetDept,
+                status: 'assigned',
+                timeline: arrayUnion({
+                  step: 'Forwarded to Department',
+                  time: new Date().toISOString(),
+                  by: `AI Classification (${formatModelLabel(payload.issueLabel)})`,
+                }),
+                updatedAt: serverTimestamp(),
+              });
+              setDept(targetDept);
+              showToast(`Auto-assigned to ${targetDept}`);
+            } catch (err) {
+              console.warn("Auto-assignment update failed:", err);
+            }
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -601,16 +664,39 @@ export default memo(function ViewComplaint({ issue, user, onClose }) {
           flexShrink: 0,
         }}>
           <div style={{
-            display: 'flex', alignItems: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             gap: 10, flexWrap: 'wrap', marginBottom: 8,
           }}>
-            <h2 style={{
-              fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700,
-              color: 'var(--text)', margin: 0, letterSpacing: -0.3,
-              minWidth: 0,
-            }}>{issue.title || 'Untitled Complaint'}</h2>
-            <SBadge status={issue.status}/>
-            {issue.priority && <PBadge priority={issue.priority}/>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700,
+                color: 'var(--text)', margin: 0, letterSpacing: -0.3,
+                minWidth: 0,
+              }}>{issue.title || 'Untitled Complaint'}</h2>
+              <SBadge status={issue.status}/>
+              {issue.priority && <PBadge priority={issue.priority}/>}
+            </div>
+
+            {!isHOD && (
+              <button
+                disabled={deleting || saving}
+                onClick={handleDeleteComplaint}
+                style={{
+                  padding: '7px 14px', borderRadius: 9,
+                  background: 'var(--redBg)', border: '1.5px solid var(--redBd)',
+                  color: 'var(--red)', fontSize: 12, fontWeight: 700,
+                  cursor: (deleting || saving) ? 'not-allowed' : 'pointer', outline: 'none',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  transition: 'all .15s',
+                }}
+                onMouseEnter={e => !deleting && (e.currentTarget.style.opacity = '0.85')}
+                onMouseLeave={e => !deleting && (e.currentTarget.style.opacity = '1')}
+                title="Permanently delete this complaint"
+              >
+                <Ic d={ICONS.trash} size={13} />
+                {deleting ? 'Deleting...' : 'Delete Complaint'}
+              </button>
+            )}
           </div>
 
           {/* Meta row */}
@@ -983,6 +1069,31 @@ export default memo(function ViewComplaint({ issue, user, onClose }) {
                 </div>
               )}
             </div>
+
+            {!isHOD && (
+              <Section label="Danger Zone">
+                <button
+                  disabled={deleting || saving}
+                  onClick={handleDeleteComplaint}
+                  style={{
+                    width: '100%', padding: '11px 14px', borderRadius: 10,
+                    background: 'var(--redBg)', border: '1.5px solid var(--redBd)',
+                    color: 'var(--red)', fontWeight: 700, fontSize: 12,
+                    cursor: (deleting || saving) ? 'not-allowed' : 'pointer', outline: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    transition: 'all .15s',
+                  }}
+                  onMouseEnter={e => !deleting && (e.currentTarget.style.opacity = '0.85')}
+                  onMouseLeave={e => !deleting && (e.currentTarget.style.opacity = '1')}
+                >
+                  <Ic d={ICONS.trash} size={14} />
+                  {deleting ? 'Deleting Complaint...' : 'Delete Complaint'}
+                </button>
+                <p style={{ fontSize: 10, color: 'var(--text3)', margin: '6px 0 0', textAlign: 'center' }}>
+                  Permanently deletes this complaint from the system.
+                </p>
+              </Section>
+            )}
           </ColScroll>
         </div>
       </div>
