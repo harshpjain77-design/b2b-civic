@@ -93,6 +93,7 @@ export default function AdminLayout({ user }) {
   const [counts, setCounts] = useState({ open: 0, total: 0 });
   const [theme, setTheme] = useState(() => localStorage.getItem('civic_theme') || localStorage.getItem('theme') || 'dark');
   const [selectedComplaintId, setSelectedComplaintId] = useState(null);
+  const [isCrisisMode, setIsCrisisMode] = useState(false);
 
   // Notification states
   const [notifications, setNotifications] = useState([]);
@@ -234,17 +235,18 @@ export default function AdminLayout({ user }) {
 
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <Dashboard user={user} />;
+      case 'dashboard': return <Dashboard user={user} isCrisisMode={isCrisisMode} />;
       case 'complaints': return (
         <Complaints
           user={user}
           initialSelectedId={selectedComplaintId}
           onClearSelectedId={() => setSelectedComplaintId(null)}
+          isCrisisMode={isCrisisMode}
         />
       );
       case 'users': return <Users user={user} />;
       case 'analytics': return <Analytics user={user} />;
-      default: return <Dashboard user={user} />;
+      default: return <Dashboard user={user} isCrisisMode={isCrisisMode} />;
     }
   };
 
@@ -484,14 +486,37 @@ export default function AdminLayout({ user }) {
 
           {/* Page title */}
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ color: 'var(--textMuted)' }}>
-              <NavIcon id={page} size={16} />
+            <div style={{ color: isCrisisMode ? 'var(--red)' : 'var(--textMuted)' }}>
+              <NavIcon id={isCrisisMode ? 'alert' : page} size={16} />
             </div>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700,
-              color: 'var(--text)', textTransform: 'capitalize', margin: 0,
-            }}>{page}</h2>
+              color: isCrisisMode ? 'var(--red)' : 'var(--text)', 
+              textTransform: isCrisisMode ? 'uppercase' : 'capitalize', margin: 0,
+              letterSpacing: isCrisisMode ? 0.5 : 0,
+            }}>
+              {isCrisisMode ? "EMERGENCY OPERATIONAL STATUS: SYSTEM STRESSED" : page}
+            </h2>
           </div>
+
+          {/* Crisis Mode Toggle */}
+          <button
+            onClick={() => setIsCrisisMode(!isCrisisMode)}
+            style={{
+              padding: '6px 14px', borderRadius: 99,
+              background: isCrisisMode ? 'var(--red)' : 'var(--surface2)',
+              border: `1px solid ${isCrisisMode ? 'var(--redBd)' : 'var(--redBd)'}`,
+              color: isCrisisMode ? '#fff' : 'var(--red)',
+              fontSize: 11.5, fontWeight: 800, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'all .2s',
+              animation: isCrisisMode ? 'pulse 2s infinite' : 'none',
+              boxShadow: isCrisisMode ? '0 0 15px rgba(255, 60, 60, 0.4)' : 'none',
+            }}
+          >
+            <NavIcon id="alert" size={13} />
+            {isCrisisMode ? 'SYSTEM STRESSED' : 'Simulate System Stress / Crisis Mode'}
+          </button>
 
           {/* Open complaints badge */}
           {counts.open > 0 && (
@@ -939,9 +964,10 @@ export default function AdminLayout({ user }) {
         <main style={{
           flex: 1, overflowY: 'auto', overflowX: 'hidden',
           padding: 24,
-          background: 'transparent',
+          background: isCrisisMode ? 'rgba(220, 20, 20, 0.05)' : 'transparent',
           position: 'relative',
           zIndex: 1,
+          animation: isCrisisMode ? 'crisisPulse 2.5s ease-in-out infinite alternate' : 'none',
         }}>
           <div key={page} style={{
             animation: 'fadeUp .38s cubic-bezier(.16,1,.3,1) both',
@@ -959,6 +985,10 @@ export default function AdminLayout({ user }) {
         @keyframes slideInRight {
           from { opacity: 0; transform: translateX(40px); }
           to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes crisisPulse {
+          0% { box-shadow: inset 0 0 0 rgba(255, 0, 0, 0); }
+          100% { box-shadow: inset 0 0 120px rgba(255, 0, 0, 0.15); }
         }
       `}</style>
     </div>
