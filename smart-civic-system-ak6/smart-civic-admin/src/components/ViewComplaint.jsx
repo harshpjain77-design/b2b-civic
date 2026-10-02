@@ -561,12 +561,19 @@ export default memo(function ViewComplaint({ issue, user, onClose, onDelete }) {
   }, [showToast]);
 
   const updateStatus = useCallback((s, extra = {}, timelineStep = null) => run(async () => {
+    let defaultStepName = STATUS[s]?.label || s;
+    if (s === 'rejected') defaultStepName = 'Request Rejected';
+    else if (s === 'resolved') defaultStepName = 'Complaint Resolved';
+    else if (s === 'in_progress') defaultStepName = 'Work in Progress';
+    else if (s === 'assigned') defaultStepName = 'Acknowledge & Assigned';
+
+    const stepLabel = timelineStep || defaultStepName;
     const payload = {
       status: s, updatedAt: serverTimestamp(),
       timeline: arrayUnion({
-        step: timelineStep || STATUS[s]?.label || s,
+        step: stepLabel,
         time: new Date().toISOString(),
-        by: user.name || user.role,
+        by: user.name || user.role || 'Admin',
       }),
       ...extra,
     };
@@ -593,20 +600,64 @@ export default memo(function ViewComplaint({ issue, user, onClose, onDelete }) {
   const tl = issue.timeline || [];
   const cm = issue.comments || [];
 
+  const isRejected = issue.status === 'rejected' || tl.some(t => t.step === 'Rejected' || t.step === 'Request Rejected' || t.step === 'Reject');
+
+  const visibleSteps = isRejected
+    ? [
+        { key: 'Reported', label: 'Complaint Registered' },
+        { key: 'Forwarded', label: 'Forwarded to Department' },
+        { key: 'Assigned', label: 'Acknowledge & Assigned' },
+        { key: 'Rejected', label: 'Request Rejected', isReject: true },
+      ]
+    : [
+        { key: 'Reported', label: 'Complaint Registered' },
+        { key: 'Forwarded', label: 'Forwarded to Department' },
+        { key: 'Assigned', label: 'Acknowledge & Assigned' },
+        { key: 'In Progress', label: 'Work in Progress' },
+        { key: 'Resolved', label: 'Complaint Resolved' },
+      ];
+
   const stepDone = useCallback(key => {
-    if (key === 'Reported')    return true;
-    if (key === 'Forwarded')   return !!issue.assignedTo;
-    if (key === 'Assigned')    return !!tl.find(t => t.step === 'Assigned') || ['in_progress', 'assigned', 'resolved', 'rejected'].includes(issue.status);
-    if (key === 'In Progress') return ['resolved', 'rejected'].includes(issue.status);
-    if (key === 'Resolved')    return issue.status === 'resolved';
+    if (key === 'Reported') return true;
+    if (key === 'Forwarded') return !!issue.assignedTo || !!tl.find(t => t.step === 'Forwarded' || t.step === 'Forwarded to Department' || t.step === 'Sent to Department');
+    if (key === 'Assigned') return !!tl.find(t => t.step === 'Assigned' || t.step === 'Acknowledge & Assigned') || ['in_progress', 'resolved'].includes(issue.status);
+    if (key === 'In Progress') return issue.status === 'resolved' || !!tl.find(t => t.step === 'In Progress' || t.step === 'Work in Progress');
+    if (key === 'Resolved') return issue.status === 'resolved' || !!tl.find(t => t.step === 'Resolved' || t.step === 'Complaint Resolved');
+    if (key === 'Rejected') return issue.status === 'rejected' || !!tl.find(t => t.step === 'Rejected' || t.step === 'Request Rejected' || t.step === 'Reject');
     return false;
   }, [issue.status, issue.assignedTo, tl]);
 
-  const stepActive = useCallback(key =>
-    (key === 'Reported' && issue.status === 'open') ||
-    ((key === 'Assigned' || key === 'In Progress') && issue.status === 'in_progress') ||
-    (key === 'Resolved' && issue.status === 'resolved'),
-  [issue.status]);
+  const stepActive = useCallback(key => {
+    if (key === 'Reported' && issue.status === 'open' && !issue.assignedTo) return true;
+    if (key === 'Forwarded' && (issue.status === 'open' || issue.status === 'assigned') && issue.assignedTo && !tl.find(t => t.step === 'Assigned' || t.step === 'Acknowledge & Assigned')) return true;
+    if (key === 'Assigned' && issue.status === 'assigned') return true;
+    if (key === 'In Progress' && issue.status === 'in_progress') return true;
+    if (key === 'Resolved' && issue.status === 'resolved') return true;
+    if (key === 'Rejected' && issue.status === 'rejected') return true;
+    return false;
+  }, [issue.status, issue.assignedTo, tl]);
+
+  const findTimelineItem = useCallback(key => {
+    if (key === 'Reported') {
+      return tl.find(t => t.step === 'Reported' || t.step === 'Complaint Registered') || { time: issue.createdAt, by: issue.userName || 'Citizen' };
+    }
+    if (key === 'Forwarded') {
+      return tl.find(t => t.step === 'Forwarded' || t.step === 'Forwarded to Department' || t.step === 'Sent to Department');
+    }
+    if (key === 'Assigned') {
+      return tl.find(t => t.step === 'Assigned' || t.step === 'Acknowledge & Assigned');
+    }
+    if (key === 'In Progress') {
+      return tl.find(t => t.step === 'In Progress' || t.step === 'Work in Progress');
+    }
+    if (key === 'Resolved') {
+      return tl.find(t => t.step === 'Resolved' || t.step === 'Complaint Resolved');
+    }
+    if (key === 'Rejected') {
+      return tl.find(t => t.step === 'Rejected' || t.step === 'Request Rejected' || t.step === 'Reject');
+    }
+    return tl.find(t => t.step === key);
+  }, [tl, issue.createdAt, issue.userName]);
 
   const isEscalated = ['open', 'assigned'].includes(issue.status) &&
     ((new Date() - (issue.createdAt?.toDate ? issue.createdAt.toDate() : new Date(issue.createdAt))) / 3600000) > ESCALATION_HOURS;
@@ -773,49 +824,85 @@ export default memo(function ViewComplaint({ issue, user, onClose, onDelete }) {
             {/* Timeline */}
             <Section label="Workflow Timeline">
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {STEPS.map((step, i) => {
+                {visibleSteps.map((step, i) => {
                   const done   = stepDone(step.key);
                   const active = stepActive(step.key);
-                  const tItem  = tl.find(t => t.step === step.key);
+                  const tItem  = findTimelineItem(step.key);
+                  const isReject = step.isReject || step.key === 'Rejected';
+
+                  let circleBg = 'var(--surface)';
+                  let circleBd = 'var(--border2)';
+                  let circleColor = 'var(--text3)';
+                  let circleShadow = 'none';
+
+                  if (isReject && (done || active)) {
+                    circleBg = 'var(--red)';
+                    circleBd = 'var(--red)';
+                    circleColor = '#fff';
+                    circleShadow = '0 2px 10px rgba(220, 38, 38, 0.35)';
+                  } else if (done) {
+                    circleBg = 'var(--green)';
+                    circleBd = 'var(--green)';
+                    circleColor = '#fff';
+                    circleShadow = '0 2px 8px rgba(34, 197, 94, 0.25)';
+                  } else if (active) {
+                    circleBg = 'var(--orange)';
+                    circleBd = 'var(--orange)';
+                    circleColor = '#fff';
+                    circleShadow = '0 2px 8px rgba(249, 115, 22, 0.25)';
+                  }
+
+                  const textColor = isReject && (done || active)
+                    ? 'var(--red)'
+                    : done
+                      ? 'var(--green)'
+                      : active
+                        ? 'var(--orange)'
+                        : 'var(--text3)';
+
                   return (
                     <div key={step.key} style={{ display: 'flex', gap: 12 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                         <div style={{
                           width: 30, height: 30, borderRadius: '50%',
-                          background: done ? 'var(--green)' : active ? 'var(--orange)' : 'var(--surface)',
-                          border: `2px solid ${done ? 'var(--green)' : active ? 'var(--orange)' : 'var(--border2)'}`,
+                          background: circleBg,
+                          border: `2px solid ${circleBd}`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: done || active ? '#fff' : 'var(--text3)',
+                          color: circleColor,
                           fontWeight: 800, fontSize: 11,
-                          boxShadow: done ? '0 2px 8px rgba(34,197,94,0.25)' : active ? '0 2px 8px rgba(249,115,22,0.25)' : 'none',
+                          boxShadow: circleShadow,
                           flexShrink: 0,
+                          transition: 'all .2s ease',
                         }}>
-                          {done
-                            ? <Ic d={ICONS.check} size={12} sw={2.8}/>
-                            : active
-                              ? <Ic d={ICONS.chevR} size={12} sw={2.5}/>
-                              : <span>{i + 1}</span>
-                          }
+                          {isReject && (done || active) ? (
+                            <Ic d={ICONS.close} size={13} sw={2.8}/>
+                          ) : done ? (
+                            <Ic d={ICONS.check} size={12} sw={2.8}/>
+                          ) : active ? (
+                            <Ic d={ICONS.chevR} size={12} sw={2.5}/>
+                          ) : (
+                            <span>{i + 1}</span>
+                          )}
                         </div>
-                        {i < STEPS.length - 1 && (
+                        {i < visibleSteps.length - 1 && (
                           <div style={{
                             width: 2, flexGrow: 1, minHeight: 18,
-                            background: done ? 'var(--green)' : 'var(--border2)',
-                            opacity: done ? 0.4 : 0.6, margin: '3px 0',
+                            background: isReject ? 'var(--red)' : (done ? 'var(--green)' : 'var(--border2)'),
+                            opacity: done || isReject ? 0.45 : 0.6, margin: '3px 0',
                           }}/>
                         )}
                       </div>
 
-                      <div style={{ paddingTop: 5, paddingBottom: i < STEPS.length - 1 ? 14 : 0, minWidth: 0 }}>
+                      <div style={{ paddingTop: 5, paddingBottom: i < visibleSteps.length - 1 ? 14 : 0, minWidth: 0 }}>
                         <p style={{
                           fontSize: 13, fontWeight: 700, margin: 0,
-                          color: done ? 'var(--green)' : active ? 'var(--orange)' : 'var(--text3)',
+                          color: textColor,
                           lineHeight: 1.4,
                         }}>{step.label}</p>
                         {tItem && (
-                          <p style={{ fontSize: 10, color: 'var(--text3)', margin: '2px 0 0' }}>
-                            {new Date(tItem.time).toLocaleString('en-IN')}
-                            {tItem.by && <span style={{ opacity: 0.7 }}> · {tItem.by}</span>}
+                          <p style={{ fontSize: 10.5, color: isReject ? 'var(--red)' : 'var(--text3)', margin: '2px 0 0', fontWeight: 500 }}>
+                            {new Date(tItem.time?.toDate ? tItem.time.toDate() : tItem.time).toLocaleString('en-IN')}
+                            {tItem.by && <span style={{ opacity: 0.85 }}> · {tItem.by}</span>}
                           </p>
                         )}
                       </div>
